@@ -19,8 +19,13 @@ uniform mat4 projection;
 #define PLANE  2
 #define PATH   3
 #define COW    4
+#define FLASHLIGHT    5
+
 uniform int object_id;
+
+uniform int flashlight_on;
 uniform float ligth_pos;
+
 uniform float flashligth_pos_x;
 uniform float flashligth_pos_y;
 uniform float flashligth_pos_z;
@@ -49,8 +54,8 @@ void main()
     vec4 p = position_world;
 
     //Spotlight
-    vec4 pontoL = vec4(0, 0, 2.5, 1.0); //representa o ponto onde está localizada a fonte de luz
-    vec4 direcao = normalize(vec4(0, 0, -1, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
+    vec4 pontoL = vec4(camera_position[0], camera_position[1], camera_position[2], 1.0); //representa o ponto onde está localizada a fonte de luz
+    vec4 direcao = normalize(vec4(flashligth_dir_x, flashligth_dir_y, flashligth_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
     float abertura = cos(M_PI/18); //10 graus
 
     // Normal do fragmento atual, interpolada pelo rasterizador a partir das
@@ -61,10 +66,11 @@ void main()
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0));
     //vec4 l = normalize(camera_position - p);
     vec4 lFlash = normalize(pontoL - p);
-    vec4 lTime = normalize(vec4(cos(M_PI/15*ligth_pos), sin(M_PI/15*ligth_pos), 0.0,0.0));
+    vec4 lTime = normalize(vec4(-cos(M_PI/15*ligth_pos), sin(M_PI/15*ligth_pos), 0.0,0.0));
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
+
 
     // Vetor que define o sentido da reflexão especular ideal.
     vec4 rFlash = -lFlash + 2*n*dot(n, lFlash); // PREENCHA AQUI o vetor de reflexão especular ideal
@@ -120,6 +126,15 @@ void main()
         Ka = Ks;
         q = 8.0;
     }
+    else if ( object_id == FLASHLIGHT )
+    {
+        // PREENCHA AQUI
+        // Propriedades espectrais do coelho
+        Kd = vec3(0.2, 0.2, 0.2);
+        Ks = vec3(0.3, 0.3, 0.3);
+        Ka = Kd/2;
+        q = 20.0;
+    }
     else // Objeto desconhecido = preto
     {
         Kd = vec3(0.0,0.0,0.0);
@@ -132,14 +147,16 @@ void main()
     vec3 I = vec3(1.0, 1.0, 1.0); // PREENCHA AQUI o espectro da fonte de luz
 
     // Espectro da luz ambiente
-    vec3 Ia = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
+    vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
+    vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
-    vec3 lambert_diffuse_term_flash = Kd*I*max(0, dot(n,lFlash)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time = Kd*I*max(0, dot(n,lTime)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_flash = Kd*I*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time = Kd*I*max(0, dot(n, lTime)); // PREENCHA AQUI o termo difuso de Lambert
 
     // Termo ambiente
-    vec3 ambient_term = Ka*Ia; // PREENCHA AQUI o termo ambiente
+    vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
+    vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
 
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term_flash  = Ks*I*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
@@ -163,16 +180,16 @@ void main()
     // especular, e ambiente. Veja slide 129 do documento Aula_17_e_18_Modelos_de_Iluminacao.pdf.
 
 
-    if (true ){
+    if (flashlight_on == 1){
 
         if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
-            color.rgb = lambert_diffuse_term_flash + ambient_term + phong_specular_term_flash;
+            color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
         } else{
             //color.rgb = ambient_term;
-            color.rgb = lambert_diffuse_term_time + ambient_term + phong_specular_term_time;
+            color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time;
         }
     } else {
-        color.rgb = lambert_diffuse_term_time + ambient_term + phong_specular_term_time;
+        color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time;
     }
 
 

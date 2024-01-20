@@ -374,10 +374,8 @@
 		<Unit filename="src/shader_fragment.glsl" />
 		<Unit filename="src/shader_vertex.glsl" />
 		<Unit filename="src/textrendering.cpp" />
+		<Unit filename="src/tiny_obj_loader.cpp" />
 		<Extensions>
-			<code_completion />
-			<envvars />
-			<debugger />
 			<lib_finder disable_auto="1" />
 		</Extensions>
 	</Project>

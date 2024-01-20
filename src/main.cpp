@@ -217,8 +217,9 @@ GLint g_model_uniform;
 GLint g_view_uniform;
 GLint g_projection_uniform;
 GLint g_object_id_uniform;
-GLfloat g_ligth_pos_uniform;
+GLint g_flashlight_on_uniform;
 
+GLfloat g_ligth_pos_uniform;
 GLfloat flashligth_pos_x;
 GLfloat flashligth_pos_y;
 GLfloat flashligth_pos_z;
@@ -233,6 +234,7 @@ bool tecla_A_pressionada = false;
 bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
 bool tecla_R_pressionada = false;
+bool tecla_F_pressionada = false;
 
 float speed = 1.0f; // Velocidade da câmera
 
@@ -367,13 +369,16 @@ int main(int argc, char* argv[])
     ComputeNormals(&planemodel);
     BuildTrianglesAndAddToVirtualScene(&planemodel);
 
-    ObjModel cowmodel("../../data/cow.obj");
-    ComputeNormals(&cowmodel);
-    BuildTrianglesAndAddToVirtualScene(&cowmodel);
+    ObjModel cowModel("../../data/cow.obj");
+    ComputeNormals(&cowModel);
+    BuildTrianglesAndAddToVirtualScene(&cowModel);
+
+    ObjModel flashlightModel("../../data/flashlight_miniature/flashlight.obj");
+    ComputeNormals(&flashlightModel);
+    BuildTrianglesAndAddToVirtualScene(&flashlightModel);
 
     // Construímos a representação de um triângulo
     GLuint vertex_array_object_id = BuildTriangles();
-
 
     if ( argc > 1 )
     {
@@ -460,6 +465,10 @@ int main(int argc, char* argv[])
         float nearplane = -0.1f;  // Posição do "near plane"
         float farplane  = -22.0f; // Posição do "far plane"
 
+        float field_of_view = 3.141592 / 3.0f;
+        projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
+
+        /*
         if (g_UsePerspectiveProjection)
         {
             // Projeção Perspectiva.
@@ -479,7 +488,7 @@ int main(int argc, char* argv[])
             float r = t*g_ScreenRatio;
             float l = -r;
             projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-        }
+        }*/
 
         //glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
 
@@ -494,9 +503,18 @@ int main(int argc, char* argv[])
         #define PLANE  2
         #define PATH   3
         #define COW    4
+        #define FLASHLIGHT    5
+
+
+        if (tecla_F_pressionada){
+            glUniform1i(g_flashlight_on_uniform, 1);
+        } else {
+            glUniform1i(g_flashlight_on_uniform, 0);
+        }
 
         glBindVertexArray(vertex_array_object_id);
          // Desenho do labirinto
+
         for (int i = 0; i<19; ++i) {
             for (int j = 0; j < 26; ++j){
                 model = Matrix_Identity();
@@ -545,48 +563,42 @@ int main(int argc, char* argv[])
         //Desenha o caminho correto
         if(tecla_R_pressionada){
             //glBindVertexArray(vertex_array_object_id2);
+
             model = Matrix_Identity();
             for(int i=0; i< 80; i++){
                 model = Matrix_Translate(CaminhoCorreto[i].x, -0.50f, -CaminhoCorreto[i].z-1) *
-                        Matrix_Scale(1.0f, 0.01f, 1.0f);
+                        Matrix_Scale(1.0f, 0.01f, 1.0f)*
+                        Matrix_Rotate_X(M_PI);
                 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, PATH);
                 DrawCube(render_as_black_uniform);
             }
+
         }
 
-        /*
-        // Desenhamos o modelo da esfera
-        model = Matrix_Translate(-1.0f,0.0f,0.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, SPHERE);
-        DrawVirtualObject("the_sphere");
-
-
-        // Desenhamos o modelo do coelho
-        model = Matrix_Translate(1.0f,0.0f,0.0f)
-              * Matrix_Rotate_Z(g_AngleZ)
-              * Matrix_Rotate_Y(g_AngleY)
-              * Matrix_Rotate_X(g_AngleX) *
-                Matrix_Scale(0.8f, 0.8f, 0.8f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, BUNNY);
-        DrawVirtualObject("the_bunny");
-
-        // Desenhamos o modelo do chão
-        model = Matrix_Translate(0.0f,-1.0f,0.0f) ;
-        model = model * Matrix_Scale(2.0f, 1.0f, 2.0f);
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, PLANE);
-        DrawVirtualObject("the_plane");*/
 
         // Desenhamos o modelo da vaca
+        model = Matrix_Identity();
         model = Matrix_Translate(0.0f, 0.0f, -24.0f)
                 * Matrix_Rotate_Y(g_AngleY);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, COW);
         DrawVirtualObject("the_cow");
         g_AngleY += 0.01;
+
+
+        //Desenhamos o modelo da lanterna, grudada na tela
+        //glm::mat4 identity = Matrix_Identity();
+        glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+
+        model = Matrix_Identity();
+        model = Matrix_Translate(0.25, -0.35, -0.7)
+                * Matrix_Scale(0.1f, 0.1f, 0.1f)
+                * Matrix_Rotate_X(-M_PI);
+
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, FLASHLIGHT);
+        DrawVirtualObject("18413_Miniature_Flashlight06");
 
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do
@@ -605,9 +617,9 @@ int main(int argc, char* argv[])
         x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
         camera_view_vector = glm::vec4(-x,-y,-z,0.0f);
 
-        glUniform1f(flashligth_dir_x, 0);
-        glUniform1f(flashligth_dir_y, 0);
-        glUniform1f(flashligth_dir_z, -1);
+        glUniform1f(flashligth_dir_x, -x);
+        glUniform1f(flashligth_dir_y, -y);
+        glUniform1f(flashligth_dir_z, -z);
 
         glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
         glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
@@ -796,6 +808,19 @@ void LoadShadersFromFiles()
     g_view_uniform       = glGetUniformLocation(g_GpuProgramID, "view"); // Variável da matriz "view" em shader_vertex.glsl
     g_projection_uniform = glGetUniformLocation(g_GpuProgramID, "projection"); // Variável da matriz "projection" em shader_vertex.glsl
     g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
+
+    g_ligth_pos_uniform = glGetUniformLocation(g_GpuProgramID, "ligth_pos");
+    g_flashlight_on_uniform = glGetUniformLocation(g_GpuProgramID, "flashlight_on");
+
+
+    flashligth_pos_x = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_x");
+    flashligth_pos_y = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_y");
+    flashligth_pos_z = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_z");
+
+    flashligth_dir_x = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_x");
+    flashligth_dir_y = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_y");
+    flashligth_dir_z = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_z");
+
 }
 
 // Função que pega a matriz M e guarda a mesma no topo da pilha
@@ -1747,6 +1772,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_R && action == GLFW_PRESS)
     {
         tecla_R_pressionada = !tecla_R_pressionada;
+    }
+
+    if (key == GLFW_KEY_F && action == GLFW_PRESS)
+    {
+        tecla_F_pressionada = !tecla_F_pressionada;
     }
 }
 
