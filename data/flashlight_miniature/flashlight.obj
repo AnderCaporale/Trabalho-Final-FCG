@@ -1,11 +1,4 @@
-# 3ds Max Wavefront OBJ Exporter v0.97b - (c)2007 guruware
-# File Created: 20.12.2012 18:44:01
-
-mtllib 18413_Miniature_Flashligh_v3.mtl
-
-#
-# object 18413_Miniature_Flashlight06
-#
+g the_flashlight
 
 v  0.6788 -0.1936 -3.4163
 v  0.7041 -0.0502 -3.4163
@@ -84482,7 +84475,6 @@ vt 0.7008 0.2639 0.0000
 vt 0.9313 0.2565 0.0000
 # 15428 texture coords
 
-g 18413_Miniature_Flashlight06
 usemtl 18413_Miniature_Flashlight
 s 16
 f 680/876/1 1592/1788/2 172/68/3 2362/2558/4 

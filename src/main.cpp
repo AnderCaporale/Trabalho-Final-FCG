@@ -463,7 +463,7 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -22.0f; // Posição do "far plane"
+        float farplane  = -25.0f; // Posição do "far plane"
 
         float field_of_view = 3.141592 / 3.0f;
         projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
@@ -492,11 +492,7 @@ int main(int argc, char* argv[])
 
         //glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
 
-        // Enviamos as matrizes "view" e "projection" para a placa de vídeo
-        // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
-        // efetivamente aplicadas em todos os pontos.
-        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
-        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
+
 
         #define SPHERE 0
         #define BUNNY  1
@@ -504,6 +500,23 @@ int main(int argc, char* argv[])
         #define PATH   3
         #define COW    4
         #define FLASHLIGHT    5
+        #define SUN    6
+        #define MOON    7
+
+        //Desenhamos o modelo da lanterna, grudada na tela
+        //glm::mat4 identity = Matrix_Identity();
+        glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+
+        model = Matrix_Identity();
+        model = Matrix_Translate(0.25, -0.35, -0.7)
+                * Matrix_Scale(0.1f, 0.1f, 0.1f)
+                * Matrix_Rotate_X(-M_PI);
+
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, FLASHLIGHT);
+        DrawVirtualObject("the_flashlight");
+
+
 
 
         if (tecla_F_pressionada){
@@ -511,6 +524,29 @@ int main(int argc, char* argv[])
         } else {
             glUniform1i(g_flashlight_on_uniform, 0);
         }
+        // Enviamos as matrizes "view" e "projection" para a placa de vídeo
+        // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
+        // efetivamente aplicadas em todos os pontos.
+        glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
+        glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
+
+        //Desenhamos o modelo do sol
+        model = Matrix_Identity();
+        model = Matrix_Translate(-cos(M_PI/15*seconds)*15, sin(M_PI/15*seconds)*15, -13.0f)
+                * Matrix_Scale(2.0f, 2.0f, 2.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, SUN);
+        DrawVirtualObject("the_sphere");
+
+        std::cout << sin(M_PI/15*seconds) << std::endl;
+
+        //Desenhamos o modelo da lua
+        model = Matrix_Identity();
+        model = Matrix_Translate(cos(M_PI/15*seconds)*20, -sin(M_PI/15*seconds)*20, -13.0f)
+                * Matrix_Scale(2.0f, 2.0f, 2.0f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, MOON);
+        DrawVirtualObject("the_sphere");
 
         glBindVertexArray(vertex_array_object_id);
          // Desenho do labirinto
@@ -587,18 +623,7 @@ int main(int argc, char* argv[])
         g_AngleY += 0.01;
 
 
-        //Desenhamos o modelo da lanterna, grudada na tela
-        //glm::mat4 identity = Matrix_Identity();
-        glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
 
-        model = Matrix_Identity();
-        model = Matrix_Translate(0.25, -0.35, -0.7)
-                * Matrix_Scale(0.1f, 0.1f, 0.1f)
-                * Matrix_Rotate_X(-M_PI);
-
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, FLASHLIGHT);
-        DrawVirtualObject("18413_Miniature_Flashlight06");
 
 
         // Imprimimos na tela os ângulos de Euler que controlam a rotação do

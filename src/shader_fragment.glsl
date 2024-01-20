@@ -20,6 +20,8 @@ uniform mat4 projection;
 #define PATH   3
 #define COW    4
 #define FLASHLIGHT    5
+#define SUN    6
+#define MOON    7
 
 uniform int object_id;
 
@@ -66,7 +68,8 @@ void main()
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0));
     //vec4 l = normalize(camera_position - p);
     vec4 lFlash = normalize(pontoL - p);
-    vec4 lTime = normalize(vec4(-cos(M_PI/15*ligth_pos), sin(M_PI/15*ligth_pos), 0.0,0.0));
+    vec4 lTime = normalize(vec4(cos(M_PI/15*ligth_pos), sin(M_PI/15*ligth_pos), 0.0,0.0));
+    vec4 lTimeMoon = normalize(vec4(-cos(M_PI/15*ligth_pos), -sin(M_PI/15*ligth_pos), 0.0,0.0));
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
@@ -75,6 +78,7 @@ void main()
     // Vetor que define o sentido da reflexão especular ideal.
     vec4 rFlash = -lFlash + 2*n*dot(n, lFlash); // PREENCHA AQUI o vetor de reflexão especular ideal
     vec4 rTime = -lTime + 2*n*dot(n, lTime); // PREENCHA AQUI o vetor de reflexão especular ideal
+    vec4 rTimeMoon = -lTimeMoon + 2*n*dot(n, lTimeMoon); // PREENCHA AQUI o vetor de reflexão especular ideal
 
     // Parâmetros que definem as propriedades espectrais da superfície
     vec3 Kd; // Refletância difusa
@@ -92,7 +96,7 @@ void main()
         Ka = Kd/2;
         q = 1.0;
     }
-    else if ( object_id == BUNNY )
+    else if ( object_id == BUNNY)
     {
         // PREENCHA AQUI
         // Propriedades espectrais do coelho
@@ -117,7 +121,7 @@ void main()
         Ks = vec3(1.0, 0.0, 0.0);
         Ka = vec3(1.0, 0.0, 0.0);
         q = 4.0;
-    } else if ( object_id == COW )
+    } else if ( object_id == COW || object_id == SUN )
     {
         // PREENCHA AQUI
         // Propriedades espectrais do coelho
@@ -134,6 +138,15 @@ void main()
         Ks = vec3(0.3, 0.3, 0.3);
         Ka = Kd/2;
         q = 20.0;
+    }
+    else if ( object_id == MOON)
+    {
+        // PREENCHA AQUI
+        // Propriedades espectrais do coelho
+        Kd = vec3(0.0 , 0.0, 0.0);
+        Ks = vec3(0.0 , 0.0, 0.0);
+        Ka = vec3(0.6, 0.6, 1.0);
+        q = 1.0;
     }
     else // Objeto desconhecido = preto
     {
@@ -153,6 +166,7 @@ void main()
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term_flash = Kd*I*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
     vec3 lambert_diffuse_term_time = Kd*I*max(0, dot(n, lTime)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time_moon = Kd*I*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
 
     // Termo ambiente
     vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
@@ -161,6 +175,7 @@ void main()
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term_flash  = Ks*I*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
     vec3 phong_specular_term_time  = Ks*I*pow(max(0, dot(rTime,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_time_moon  = Ks*I*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -185,11 +200,19 @@ void main()
         if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
             color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
         } else{
-            //color.rgb = ambient_term;
-            color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time;
+            if (sin(M_PI/15*ligth_pos) > 0 ) {
+                color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time ;
+            } else{
+                color.rgb = 0.5*ambient_term_time + phong_specular_term_time + 0.001*lambert_diffuse_term_time_moon;
+            }
         }
     } else {
-        color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time;
+        if (sin(M_PI/15*ligth_pos) > 0 ) {
+            color.rgb = lambert_diffuse_term_time + ambient_term_time + phong_specular_term_time ;
+        } else{
+            color.rgb = 0.1*ambient_term_time + phong_specular_term_time + 0.001*lambert_diffuse_term_time_moon;
+
+        }
     }
 
 
@@ -197,5 +220,9 @@ void main()
     // Cor final com correção gamma, considerando monitor sRGB.
     // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
+
+    if(object_id == SUN || object_id == MOON ){
+        color.rgb = ambient_term_flash;
+    }
 }
 
