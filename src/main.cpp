@@ -48,6 +48,10 @@
 #include "utils.h"
 #include "matrices.h"
 
+// Tamanho da tela
+#define SCREEN_WIDTH    800
+#define SCREEN_HEIGHT   800
+
 // Estrutura que representa um modelo geométrico carregado a partir de um
 // arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
 struct ObjModel
@@ -193,7 +197,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // usuário através do mouse (veja função CursorPosCallback()). A posição
 // efetiva da câmera é calculada dentro da função main(), dentro do loop de
 // renderização.
-float g_CameraTheta = 0.0f; // Ângulo no plano ZX em relação ao eixo Z
+float g_CameraTheta = -M_PI_2 ; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 0.1f; // Distância da câmera para a origem
 
@@ -220,6 +224,8 @@ GLint g_object_id_uniform;
 GLint g_flashlight_on_uniform;
 
 GLfloat g_ligth_pos_uniform;
+GLint g_segundos_ciclo_dia;
+
 GLfloat flashligth_pos_x;
 GLfloat flashligth_pos_y;
 GLfloat flashligth_pos_z;
@@ -235,16 +241,18 @@ bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
 bool tecla_R_pressionada = false;
 bool tecla_F_pressionada = false;
+bool tecla_TAB_pressionada = false;
 
 float speed = 1.0f; // Velocidade da câmera
-
+float g_CameraSpeed[4] = {0.0f};
+glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
 typedef struct {
     float x,y,z,dir;
 } Wall;
 
 
-int paredes[19][26] = {
+int paredes[21][26] = {
     {2, 1, 1, 1, 3, 1, 3, 1, 1, 1, 3, 1, 1, 0, 1, 3, 1, 3, 1, 1, 1, 1, 3, 1, 1, 3},
     {2, 2, 1, 2, 0, 2, 0, 1, 1, 2, 1, 2, 1, 1, 3, 0, 3, 0, 0, 1, 3, 1, 0, 1, 0, 3},
     {2, 1, 2, 2, 2, 1, 2, 1, 3, 1, 2, 1, 0, 3, 0, 2, 0, 1, 1, 1, 2, 1, 3, 0, 3, 2},
@@ -263,7 +271,9 @@ int paredes[19][26] = {
     {2, 0, 2, 0, 3, 2, 2, 1, 0, 2, 0, 2, 2, 0, 2, 2, 0, 1, 1, 3, 0, 2, 1, 0, 0, 3},
     {2, 1, 1, 3, 0, 2, 2, 0, 3, 1, 3, 0, 2, 3, 1, 2, 1, 0, 1, 1, 1, 3, 2, 1, 2, 2},
     {2, 2, 2, 0, 2, 2, 1, 3, 2, 0, 1, 3, 0, 2, 2, 1, 0, 3, 1, 2, 1, 2, 0, 3, 1, 2},
-    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
+    {0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
 
 typedef struct {
@@ -309,7 +319,7 @@ int main(int argc, char* argv[])
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
     GLFWwindow* window;
-    window = glfwCreateWindow(800, 600, "INF01047 - Trabalho Final FCG", NULL, NULL);
+    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "INF01047 - Trabalho Final FCG", NULL, NULL);
 
     //Tela cheia
     //window = glfwCreateWindow(1366, 800, "INF01047 - Trabalho Final FCG", glfwGetPrimaryMonitor(), NULL);
@@ -330,6 +340,9 @@ int main(int argc, char* argv[])
     // ... ou rolar a "rodinha" do mouse.
     glfwSetScrollCallback(window, ScrollCallback);
 
+    glfwSetCursorPos(window, SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+
     // Indicamos que as chamadas OpenGL deverão renderizar nesta janela
     glfwMakeContextCurrent(window);
 
@@ -341,7 +354,7 @@ int main(int argc, char* argv[])
     // redimensionada, por consequência alterando o tamanho do "framebuffer"
     // (região de memória onde são armazenados os pixels da imagem).
     glfwSetFramebufferSizeCallback(window, FramebufferSizeCallback);
-    FramebufferSizeCallback(window, 800, 600); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
+    FramebufferSizeCallback(window, SCREEN_WIDTH, SCREEN_HEIGHT); // Forçamos a chamada do callback acima, para definir g_ScreenRatio.
 
     // Imprimimos no terminal informações sobre a GPU do sistema
     const GLubyte *vendor      = glGetString(GL_VENDOR);
@@ -373,9 +386,15 @@ int main(int argc, char* argv[])
     ComputeNormals(&cowModel);
     BuildTrianglesAndAddToVirtualScene(&cowModel);
 
-    ObjModel flashlightModel("../../data/flashlight_miniature/flashlight.obj");
+    //Lanterna legal, mas buga o GL_DEPTH desabilitado
+    //ObjModel flashlightModel("../../data/flashlight_miniature/flashlight.obj");
+    ObjModel flashlightModel("../../data/flashlight_simples/flashlight.obj");
     ComputeNormals(&flashlightModel);
     BuildTrianglesAndAddToVirtualScene(&flashlightModel);
+
+    ObjModel gunModel("../../data/gun/gm.obj");
+    ComputeNormals(&gunModel);
+    BuildTrianglesAndAddToVirtualScene(&gunModel);
 
     // Construímos a representação de um triângulo
     GLuint vertex_array_object_id = BuildTriangles();
@@ -418,22 +437,56 @@ int main(int argc, char* argv[])
 
     float prev_time = (float)glfwGetTime();
     float delta_t;
-    glm::mat4 model;
+    glm::mat4 model = Matrix_Identity();
+
+    int posCoelhoX[10], posCoelhoZ[10];
+
+    for(int i=0 ; i<10 ; i++){
+        posCoelhoX[i] = rand()%24 + 1;
+        posCoelhoZ[i] = rand()%17 + 2;
+    }
+    float cor_r=1,cor_g=1,cor_b=1;
+    int tempo = 0;
+    float segundosCicloDia = 30;
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
+        //Enviamos os segundos, que controlará a posição da luz
         float seconds = glfwGetTime();
-        //std::cout << double(cos(M_PI/30.0*seconds)) << std::endl;
-        //std::cout << double(sin(M_PI/30.0*seconds)) << std::endl;
-        //std::cout << (seconds) << std::endl;
         glUniform1f(g_ligth_pos_uniform, seconds);
+        glUniform1i(g_segundos_ciclo_dia, segundosCicloDia);
 
+        // Computação da posição da câmera
+        float y = sin(g_CameraPhi);
+        float x = cos(g_CameraPhi)*cos(g_CameraTheta);
+        float z = cos(g_CameraPhi)*sin(g_CameraTheta);
 
-        //std::cout << (camera_position_c[0]) << std::endl;
-        //std::cout << (camera_position_c[1]) << std::endl;
-        //std::cout << (camera_position_c[2]) << std::endl;
+        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+        glm::vec4 camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
+        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+        glm::vec4 front_vec = camera_view_vector;
+        front_vec.y = 0.0f;
+        front_vec = front_vec / norm(front_vec);
+        glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
+        glm::vec4 camera_new_position = camera_position_c + front_vec * g_CameraSpeed[0]
+                                                          - front_vec * g_CameraSpeed[2]
+                                                          - side_vec  * g_CameraSpeed[1]
+                                                          + side_vec  * g_CameraSpeed[3];
+        glm::vec4 move_direction = camera_new_position - camera_position_c;
 
+        // Computamos a matriz "View" utilizando os parâmetros da câmera para
+        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+
+        camera_position_c += move_direction;
+
+        glUniform1f(flashligth_pos_x, camera_position_c[0]);
+        glUniform1f(flashligth_pos_y, camera_position_c[1]);
+        glUniform1f(flashligth_pos_z, camera_position_c[2]);
+
+        glUniform1f(flashligth_dir_x, camera_view_vector[0]);
+        glUniform1f(flashligth_dir_y, camera_view_vector[1]);
+        glUniform1f(flashligth_dir_z, camera_view_vector[2]);
 
         // Aqui executamos as operações de renderização
 
@@ -443,7 +496,23 @@ int main(int argc, char* argv[])
         // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
         //
         //           R     G     B     A
-        glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+
+
+        if (tempo - int(seconds) != 0){
+            tempo++;
+        }
+
+        if ( tempo%(int(segundosCicloDia)*2) > segundosCicloDia*0.75 && tempo%(int(segundosCicloDia)*2) < int(segundosCicloDia)){
+            cor_r = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
+            cor_g = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
+            cor_b = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
+        } else if ( tempo%(int(segundosCicloDia)*2) > segundosCicloDia*1.75){
+            cor_r = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
+            cor_g = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
+            cor_b = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
+        }
+        glClearColor(cor_r, cor_g, cor_b, 1.0f);
 
         // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
         // e também resetamos todos os pixels do Z-buffer (depth buffer).
@@ -455,7 +524,7 @@ int main(int argc, char* argv[])
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         // definir o sistema de coordenadas da câmera.  Veja slides 2-14, 184-190 e 236-242 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+        //glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
         glm::mat4 projection;
@@ -463,35 +532,10 @@ int main(int argc, char* argv[])
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
         float nearplane = -0.1f;  // Posição do "near plane"
-        float farplane  = -25.0f; // Posição do "far plane"
+        float farplane  = -35.0f; // Posição do "far plane"
 
         float field_of_view = 3.141592 / 3.0f;
         projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-
-        /*
-        if (g_UsePerspectiveProjection)
-        {
-            // Projeção Perspectiva.
-            // Para definição do field of view (FOV), veja slides 205-215 do documento Aula_09_Projecoes.pdf.
-            float field_of_view = 3.141592 / 3.0f;
-            projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
-        }
-        else
-        {
-            // Projeção Ortográfica.
-            // Para definição dos valores l, r, b, t ("left", "right", "bottom", "top"),
-            // PARA PROJEÇÃO ORTOGRÁFICA veja slides 219-224 do documento Aula_09_Projecoes.pdf.
-            // Para simular um "zoom" ortográfico, computamos o valor de "t"
-            // utilizando a variável g_CameraDistance.
-            float t = 1.5f*g_CameraDistance/2.5f;
-            float b = -t;
-            float r = t*g_ScreenRatio;
-            float l = -r;
-            projection = Matrix_Orthographic(l, r, b, t, nearplane, farplane);
-        }*/
-
-        //glm::mat4 model = Matrix_Identity(); // Transformação identidade de modelagem
-
 
 
         #define SPHERE 0
@@ -501,29 +545,11 @@ int main(int argc, char* argv[])
         #define COW    4
         #define FLASHLIGHT    5
         #define SUN    6
-        #define MOON    7
-
-        //Desenhamos o modelo da lanterna, grudada na tela
-        //glm::mat4 identity = Matrix_Identity();
-        glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
-
-        model = Matrix_Identity();
-        model = Matrix_Translate(0.25, -0.35, -0.7)
-                * Matrix_Scale(0.1f, 0.1f, 0.1f)
-                * Matrix_Rotate_X(-M_PI);
-
-        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-        glUniform1i(g_object_id_uniform, FLASHLIGHT);
-        DrawVirtualObject("the_flashlight");
+        #define MOON   7
 
 
 
 
-        if (tecla_F_pressionada){
-            glUniform1i(g_flashlight_on_uniform, 1);
-        } else {
-            glUniform1i(g_flashlight_on_uniform, 0);
-        }
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
         // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
         // efetivamente aplicadas em todos os pontos.
@@ -532,17 +558,17 @@ int main(int argc, char* argv[])
 
         //Desenhamos o modelo do sol
         model = Matrix_Identity();
-        model = Matrix_Translate(-cos(M_PI/15*seconds)*15, sin(M_PI/15*seconds)*15, -13.0f)
-                * Matrix_Scale(2.0f, 2.0f, 2.0f);
+        model = Matrix_Translate(-cos(M_PI/segundosCicloDia*seconds)*19, sin(M_PI/segundosCicloDia*seconds)*19, -13.0f)
+                * Matrix_Scale(3.0f, 3.0f, 3.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
 
-        std::cout << sin(M_PI/15*seconds) << std::endl;
+        //std::cout << sin(M_PI/15*seconds) << std::endl;
 
         //Desenhamos o modelo da lua
         model = Matrix_Identity();
-        model = Matrix_Translate(cos(M_PI/15*seconds)*20, -sin(M_PI/15*seconds)*20, -13.0f)
+        model = Matrix_Translate(cos(M_PI/segundosCicloDia*seconds)*19, -sin(M_PI/segundosCicloDia*seconds)*19, -13.0f)
                 * Matrix_Scale(2.0f, 2.0f, 2.0f);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, MOON);
@@ -551,7 +577,7 @@ int main(int argc, char* argv[])
         glBindVertexArray(vertex_array_object_id);
          // Desenho do labirinto
 
-        for (int i = 0; i<19; ++i) {
+        for (int i = 0; i<21; ++i) {
             for (int j = 0; j < 26; ++j){
                 model = Matrix_Identity();
 
@@ -571,6 +597,12 @@ int main(int argc, char* argv[])
                     DrawCube(render_as_black_uniform);
 
                 } else if ( paredes[i][j] == 3 ){
+                    model = Matrix_Identity();
+                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
+                            Matrix_Scale(1.0f, 1.0f, 0.01f);
+                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+                    glUniform1i(g_object_id_uniform, BUNNY);
+                    DrawCube(render_as_black_uniform);
 
                     model = Matrix_Translate(j-13 + 0.495f, 0, i-19) *
                             Matrix_Scale(0.01f, 1.0f, 1.00f);
@@ -578,19 +610,13 @@ int main(int argc, char* argv[])
                     glUniform1i(g_object_id_uniform, SPHERE);
                     DrawCube(render_as_black_uniform);
 
-                    model = Matrix_Identity();
-                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
-                            Matrix_Scale(1.0f, 1.0f, 0.01f);
-                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, BUNNY);
-                    DrawCube(render_as_black_uniform);
                 }
             }
         }
 
         //Desenha o chão
         model = Matrix_Identity();
-        model = Matrix_Translate(0, -0.505f, -13 )*
+        model = Matrix_Translate(0, -0.505f, -12 )*
                 Matrix_Scale(26.0f, 0.01f, 26.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
@@ -598,17 +624,25 @@ int main(int argc, char* argv[])
 
         //Desenha o caminho correto
         if(tecla_R_pressionada){
-            //glBindVertexArray(vertex_array_object_id2);
-
             model = Matrix_Identity();
             for(int i=0; i< 80; i++){
-                model = Matrix_Translate(CaminhoCorreto[i].x, -0.50f, -CaminhoCorreto[i].z-1) *
-                        Matrix_Scale(1.0f, 0.01f, 1.0f)*
-                        Matrix_Rotate_X(M_PI);
+                //Correção para não ficar exatamente sobreposto nas paredes: 0.005
+                model = Matrix_Translate(CaminhoCorreto[i].x-0.005, -0.50f, -CaminhoCorreto[i].z-1+0.005) *
+                        Matrix_Scale(1.0f-0.005, 0.01f, 1.0f-0.005);
                 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, PATH);
                 DrawCube(render_as_black_uniform);
             }
+        }
+
+         // Desenhamos o modelo dos coelhos
+        for(int i=0; i< 10; ++i){
+            model = Matrix_Identity();
+            model = Matrix_Translate(posCoelhoX[i] - 13, -0.4f , -posCoelhoZ[i])
+                    * Matrix_Scale(0.1f, 0.1f, 0.1f);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, BUNNY);
+            DrawVirtualObject("the_bunny");
 
         }
 
@@ -624,32 +658,53 @@ int main(int argc, char* argv[])
 
 
 
+        glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+        if(tecla_TAB_pressionada == 1){
+
+            //Desenhamos o modelo da lanterna, grudada na tela
+            model = Matrix_Translate(0.25, -0.35, -0.3)
+                * Matrix_Scale(0.1f, 0.1f, 0.1f)
+                * Matrix_Rotate_X(-M_PI);
+
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, FLASHLIGHT);
+            glDisable(GL_DEPTH_TEST);
+            DrawVirtualObject("the_flashlight");
+            glEnable(GL_DEPTH_TEST);
+        } else {
+            tecla_F_pressionada = 0;
+            //Desenhamos o modelo da arma, grudada na tela
+            model = Matrix_Translate(0.25, -0.2, -0.8)
+                    * Matrix_Scale(0.03f, 0.03f, 0.03f)
+                    * Matrix_Rotate_Y(M_PI/2);
+
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, FLASHLIGHT);
+            //glDisable(GL_DEPTH_TEST);
+            DrawVirtualObject("the_gun");
+            //glEnable(GL_DEPTH_TEST);
+        }
+
+        if (tecla_F_pressionada){
+            glUniform1i(g_flashlight_on_uniform, 1);
+        } else {
+            glUniform1i(g_flashlight_on_uniform, 0);
+        }
 
 
-        // Imprimimos na tela os ângulos de Euler que controlam a rotação do
-        // terceiro cubo.
-        //TextRendering_ShowEulerAngles(window);
+        /*
+        y = sin(g_CameraPhi);
+        z = cos(g_CameraPhi)*cos(g_CameraTheta);
+        x = cos(g_CameraPhi)*sin(g_CameraTheta);
 
-        // Imprimimos na informação sobre a matriz de projeção sendo utilizada.
-        //TextRendering_ShowProjection(window);
-
-        // Imprimimos na tela informação sobre o número de quadros renderizados
-        // por segundo (frames per second).
-        //TextRendering_ShowFramesPerSecond(window);
-
-        y = r*sin(g_CameraPhi);
-        z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
-        x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
         camera_view_vector = glm::vec4(-x,-y,-z,0.0f);
 
-        glUniform1f(flashligth_dir_x, -x);
-        glUniform1f(flashligth_dir_y, -y);
-        glUniform1f(flashligth_dir_z, -z);
+
 
         glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
         glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
         //glm::vec4 vetor_v = crossproduct(vetor_w, vetor_u);
-
+        */
         // Atualiza delta de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -658,28 +713,26 @@ int main(int argc, char* argv[])
         // Realiza movimentação de objetos
         if (tecla_W_pressionada){
             // Movimenta câmera para frente
-            camera_position_c += -vetor_w * speed * delta_t;
+            //camera_position_c += -vetor_w * speed * delta_t;
         }
 
         if (tecla_A_pressionada){
             // Movimenta câmera para esquerda
-            camera_position_c += -vetor_u * speed * delta_t;
+            //camera_position_c += -vetor_u * speed * delta_t;
         }
 
         if (tecla_S_pressionada){
             // Movimenta câmera para tras
-            camera_position_c += vetor_w * speed * delta_t;
+            //camera_position_c += vetor_w * speed * delta_t;
         }
 
         if (tecla_D_pressionada){
             // Movimenta câmera para direita
-            camera_position_c += vetor_u * speed * delta_t;
+            //camera_position_c += vetor_u * speed * delta_t;
         }
 
+        //glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
-        glUniform1f(flashligth_pos_x, camera_position_c[0]);
-        glUniform1f(flashligth_pos_y, camera_position_c[1]);
-        glUniform1f(flashligth_pos_z, camera_position_c[2]);
 
 
 
@@ -835,8 +888,8 @@ void LoadShadersFromFiles()
     g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
 
     g_ligth_pos_uniform = glGetUniformLocation(g_GpuProgramID, "ligth_pos");
+    g_segundos_ciclo_dia = glGetUniformLocation(g_GpuProgramID, "segundosCicloDia");
     g_flashlight_on_uniform = glGetUniformLocation(g_GpuProgramID, "flashlight_on");
-
 
     flashligth_pos_x = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_x");
     flashligth_pos_y = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_y");
@@ -1549,31 +1602,33 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // parâmetros que definem a posição da câmera dentro da cena virtual.
     // Assim, temos que o usuário consegue controlar a câmera.
 
-    if (g_LeftMouseButtonPressed)
-    {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
 
-        // Atualizamos parâmetros da câmera com os deslocamentos
-        g_CameraTheta -= 0.01f*dx;
-        g_CameraPhi   += 0.01f*dy;
+       if (xpos != SCREEN_WIDTH/2 || ypos != SCREEN_HEIGHT/2){
+            float dx = xpos - SCREEN_WIDTH/2;
+            float dy = SCREEN_HEIGHT/2 - ypos;
 
-        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-        float phimax = 3.141592f/2;
-        float phimin = -phimax;
+            // Atualizamos parâmetros da câmera com os deslocamentos
+            g_CameraTheta += 0.005f*dx;
+            g_CameraPhi      += 0.005f*dy;
 
-        if (g_CameraPhi > phimax)
-            g_CameraPhi = phimax;
+            // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
+            float phimax = M_PI_2;
+            float phimin = -phimax;
 
-        if (g_CameraPhi < phimin)
-            g_CameraPhi = phimin;
+            if (g_CameraPhi > phimax)
+                g_CameraPhi = phimax;
 
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
-    }
+            if (g_CameraPhi < phimin)
+                g_CameraPhi = phimin;
+
+            // Atualizamos as variáveis globais para armazenar a posição atual do
+            // cursor como sendo a última posição conhecida do cursor.
+            g_LastCursorPosX = xpos;
+            g_LastCursorPosY = ypos;
+
+            glfwSetCursorPos(window, SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+        }
+
 
     if (g_RightMouseButtonPressed)
     {
@@ -1654,40 +1709,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
     {
         g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    if (key == GLFW_KEY_Y && action == GLFW_PRESS)
-    {
-        g_AngleY += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
-    {
-        g_AngleZ += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    }
-
-    // Se o usuário apertar a tecla espaço, resetamos os ângulos de Euler para zero.
-    if (key == GLFW_KEY_SPACE && action == GLFW_PRESS)
-    {
-        g_AngleX = 0.0f;
-        g_AngleY = 0.0f;
-        g_AngleZ = 0.0f;
-        g_ForearmAngleX = 0.0f;
-        g_ForearmAngleZ = 0.0f;
-        g_TorsoPositionX = 0.0f;
-        g_TorsoPositionY = 0.0f;
-    }
-
-    // Se o usuário apertar a tecla P, utilizamos projeção perspectiva.
-    if (key == GLFW_KEY_P && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = true;
-    }
-
-    // Se o usuário apertar a tecla O, utilizamos projeção ortográfica.
-    if (key == GLFW_KEY_O && action == GLFW_PRESS)
-    {
-        g_UsePerspectiveProjection = false;
-    }*/
+    } */
 
     // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
     if (key == GLFW_KEY_H && action == GLFW_PRESS)
@@ -1703,76 +1725,36 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         fflush(stdout);
     }
 
-    if (key == GLFW_KEY_W)
-    {
-        if (action == GLFW_PRESS)
-            // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            tecla_W_pressionada = true;
-
-        else if (action == GLFW_RELEASE)
-            // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            tecla_W_pressionada = false;
-
-        else if (action == GLFW_REPEAT)
-            // Usuário está segurando a tecla D e o sistema operacional está
-            // disparando eventos de repetição. Neste caso, não precisamos
-            // atualizar o estado da tecla, pois antes de um evento REPEAT
-            // necessariamente deve ter ocorrido um evento PRESS.
-            ;
+     if (key == GLFW_KEY_W){ // Movimento para frente
+        if (action == GLFW_PRESS) {
+            g_CameraSpeed[0] = 0.05f;
+        } if(action == GLFW_RELEASE) {
+            g_CameraSpeed[0] = 0.0f;
+        }
     }
 
-    if (key == GLFW_KEY_A)
-    {
-        if (action == GLFW_PRESS)
-            // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            tecla_A_pressionada = true;
-
-        else if (action == GLFW_RELEASE)
-            // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            tecla_A_pressionada = false;
-
-        else if (action == GLFW_REPEAT)
-            // Usuário está segurando a tecla D e o sistema operacional está
-            // disparando eventos de repetição. Neste caso, não precisamos
-            // atualizar o estado da tecla, pois antes de um evento REPEAT
-            // necessariamente deve ter ocorrido um evento PRESS.
-            ;
+    if (key == GLFW_KEY_A) { // Movimento para a esquerda
+        if (action == GLFW_PRESS) {
+            g_CameraSpeed[1] = 0.05f;
+        } if(action == GLFW_RELEASE) {
+            g_CameraSpeed[1] = 0.0f;
+        }
     }
 
-    if (key == GLFW_KEY_S)
-    {
-        if (action == GLFW_PRESS)
-            // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            tecla_S_pressionada = true;
-
-        else if (action == GLFW_RELEASE)
-            // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            tecla_S_pressionada = false;
-
-        else if (action == GLFW_REPEAT)
-            // Usuário está segurando a tecla D e o sistema operacional está
-            // disparando eventos de repetição. Neste caso, não precisamos
-            // atualizar o estado da tecla, pois antes de um evento REPEAT
-            // necessariamente deve ter ocorrido um evento PRESS.
-            ;
+    if (key == GLFW_KEY_S) { // Movimento para tras
+        if (action == GLFW_PRESS) {
+            g_CameraSpeed[2] = 0.05f;
+        } if(action == GLFW_RELEASE) {
+            g_CameraSpeed[2] = 0.0f;
+        }
     }
 
-    if (key == GLFW_KEY_D)
-    {
-        if (action == GLFW_PRESS)
-            // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            tecla_D_pressionada = true;
-
-        else if (action == GLFW_RELEASE)
-            // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            tecla_D_pressionada = false;
-
-        else if (action == GLFW_REPEAT)
-            // Usuário está segurando a tecla D e o sistema operacional está
-            // disparando eventos de repetição. Neste caso, não precisamos
-            // atualizar o estado da tecla, pois antes de um evento REPEAT
-            // necessariamente deve ter ocorrido um evento PRESS.
-            ;
+    if (key == GLFW_KEY_D) { // Movimento para a direita
+        if (action == GLFW_PRESS) {
+            g_CameraSpeed[3] = 0.05f;
+        } if(action == GLFW_RELEASE) {
+            g_CameraSpeed[3] = 0.0f;
+        }
     }
 
      if (key == GLFW_KEY_SPACE)
@@ -1802,6 +1784,11 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_F && action == GLFW_PRESS)
     {
         tecla_F_pressionada = !tecla_F_pressionada;
+    }
+
+    if (key == GLFW_KEY_TAB && action == GLFW_PRESS)
+    {
+        tecla_TAB_pressionada = !tecla_TAB_pressionada;
     }
 }
 
