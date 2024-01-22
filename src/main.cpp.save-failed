@@ -394,8 +394,8 @@ int main(int argc, char* argv[])
     BuildTrianglesAndAddToVirtualScene(&cowModel);
 
     //Lanterna legal, mas buga o GL_DEPTH desabilitado
-    ObjModel flashlightModel("../../data/flashlight_miniature/flashlight.obj");
-    //ObjModel flashlightModel("../../data/flashlight_simples/flashlight.obj");
+    //ObjModel flashlightModel("../../data/flashlight_miniature/flashlight.obj");
+    ObjModel flashlightModel("../../data/flashlight_simples/flashlight.obj");
     ComputeNormals(&flashlightModel);
     BuildTrianglesAndAddToVirtualScene(&flashlightModel);
 
@@ -660,7 +660,6 @@ int main(int argc, char* argv[])
                 * Matrix_Rotate_Y(g_AngleY);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, COW);
-
         DrawVirtualObject("the_cow");
         g_AngleY += 0.01;
 
@@ -670,16 +669,15 @@ int main(int argc, char* argv[])
         if(tecla_TAB_pressionada == 1){
 
             //Desenhamos o modelo da lanterna, grudada na tela
-            model = Matrix_Translate(0.25, -0.35, -0.7)
+            model = Matrix_Translate(0.25, -0.35, -0.3)
                 * Matrix_Scale(0.1f, 0.1f, 0.1f)
                 * Matrix_Rotate_X(-M_PI);
 
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, FLASHLIGHT);
-            glClear(GL_DEPTH_BUFFER_BIT);
-            //glDisable(GL_DEPTH_TEST);
+            glDisable(GL_DEPTH_TEST);
             DrawVirtualObject("the_flashlight");
-            //glEnable(GL_DEPTH_TEST);
+            glEnable(GL_DEPTH_TEST);
         } else {
             tecla_F_pressionada = 0;
             //Desenhamos o modelo da arma, grudada na tela
@@ -689,11 +687,9 @@ int main(int argc, char* argv[])
 
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, FLASHLIGHT);
-            glClear(GL_DEPTH_BUFFER_BIT);
             //glDisable(GL_DEPTH_TEST);
             DrawVirtualObject("the_gun");
             //glEnable(GL_DEPTH_TEST);
-
         }
 
         if (tecla_F_pressionada){

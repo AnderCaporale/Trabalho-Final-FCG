@@ -211,19 +211,27 @@ void main()
 
 
     if (flashlight_on == 1){
-
-        if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
-            color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
-        } else{
+        if(object_id == FLASHLIGHT){
             if (sin_pos_light > 0 ) {
-                color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
+                color.rgb = sin_pos_light*lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
             } else{
                 color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.5*ambient_term_time + phong_specular_term_time_moon;
+            }
+
+        } else {
+            if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
+                color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
+            } else{
+                if (sin_pos_light > 0 ) {
+                    color.rgb = sin_pos_light*lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
+                } else{
+                    color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.5*ambient_term_time + phong_specular_term_time_moon;
+                }
             }
         }
     } else {
         if (sin_pos_light > 0 ) {
-            color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
+            color.rgb = sin_pos_light*lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
         } else{
             color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.1*ambient_term_time + phong_specular_term_time_moon;
 
