@@ -22,6 +22,7 @@ uniform mat4 projection;
 #define FLASHLIGHT    5
 #define SUN    6
 #define MOON    7
+#define CUBE    8
 
 uniform int object_id;
 
@@ -57,9 +58,9 @@ void main()
     vec4 p = position_world;
 
     //Spotlight
-    vec4 pontoL = vec4(camera_position[0], camera_position[1], camera_position[2], 1.0); //representa o ponto onde está localizada a fonte de luz
+    vec4 pontoL = vec4(camera_position.x, camera_position.y, camera_position.z, 1.0); //representa o ponto onde está localizada a fonte de luz
     vec4 direcao = normalize(vec4(flashligth_dir_x, flashligth_dir_y, flashligth_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
-    float abertura = cos(M_PI/18); //10 graus
+    float abertura = cos(M_PI/15); //12 graus
 
     // Normal do fragmento atual, interpolada pelo rasterizador a partir das
     // normais de cada vértice.
@@ -71,9 +72,9 @@ void main()
     // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0)); //Luz fixa
     //vec4 l = normalize(camera_position - p); //Camera é a luz
-    vec4 lFlash = normalize(pontoL - p);    //Luz Spotlight
-    vec4 lTimeSun = normalize(vec4(cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
-    vec4 lTimeMoon = normalize(vec4(-cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
+    vec4 lFlash = normalize(pontoL - p)/(max(length(pontoL-p),1));    //Luz Spotlight
+    vec4 lTimeSun = normalize(vec4(-cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
+    vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
@@ -113,8 +114,8 @@ void main()
     {
         // PREENCHA AQUI
         // Propriedades espectrais do plano
-        Kd = vec3(0.2, 0.2, 0.2);
-        Ks = vec3(0.3, 0.3, 0.3);
+        Kd = vec3(0.5, 0.5, 0.5);
+        Ks = vec3(0.6, 0.6, 0.6);
         Ka = Kd/2;
         q = 20.0;
     } else if ( object_id == PATH )
@@ -163,6 +164,12 @@ void main()
         Ka = vec3(0.9, 0.9, 1.0);
         q = 1.0;
     }
+    else if (object_id == CUBE){
+        Kd = vec3(0.6, 0.6, 0.2);
+        Ks = vec3(0.6, 0.6, 0.2);
+        Ka = Kd/2;
+        q = 20.0;
+    }
     else // Objeto desconhecido = preto
     {
         Kd = vec3(0.0,0.0,0.0);
@@ -172,25 +179,25 @@ void main()
     }
 
     // Espectro da fonte de iluminação
-    vec3 I = vec3(1.0, 1.0, 1.0); // PREENCHA AQUI o espectro da fonte de luz
+    vec3 I_flash = vec3(1.0, 1.0, 1.0);
+    vec3 I_sun = vec3(1.0, 0.95, 0.8); 
+    vec3 I_moon = vec3(0.5, 0.5, 0.55);
 
     // Espectro da luz ambiente
-    vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
-    vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
+    vec3 Ia = vec3(0.2, 0.2, 0.2);
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
-    vec3 lambert_diffuse_term_flash = Kd*I*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_sun = Kd*I*max(0, dot(n, lTimeSun)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_moon = Kd*I*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time_sun = Kd*I_sun*max(0, dot(n, lTimeSun)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time_moon = Kd*I_moon*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
 
     // Termo ambiente
-    vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
-    vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
+    vec3 ambient_term = Ka*Ia;
 
     // Termo especular utilizando o modelo de iluminação de Phong
-    vec3 phong_specular_term_flash  = Ks*I*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_sun  = Ks*I*pow(max(0, dot(rTimeSun,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_moon  = Ks*I*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_flash  = Ks*I_flash*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_time_sun  = Ks*I_sun*pow(max(0, dot(rTimeSun,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_time_moon  = Ks*I_moon*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -206,36 +213,40 @@ void main()
     // Alpha default = 1 = 100% opaco = 0% transparente
     color.a = 1;
 
-    // Cor final do fragmento calculada com uma combinação dos termos difuso,
-    // especular, e ambiente. Veja slide 129 do documento Aula_17_e_18_Modelos_de_Iluminacao.pdf.
+    vec4 color_flash = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 color_time_sun = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 color_time_moon = vec4(0.0, 0.0, 0.0, 1.0);
 
-
-    if (flashlight_on == 1){
-
-        if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
-            color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
-        } else{
-            if (sin_pos_light > 0 ) {
-                color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
-            } else{
-                color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.5*ambient_term_time + phong_specular_term_time_moon;
-            }
-        }
-    } else {
-        if (sin_pos_light > 0 ) {
-            color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
-        } else{
-            color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.1*ambient_term_time + phong_specular_term_time_moon;
-
-        }
+    if (flashlight_on == 1 && object_id != FLASHLIGHT){
+        float cos_angle = dot(normalize(p - pontoL), normalize(direcao));
+        if(cos_angle >= abertura){
+            color_flash.rgb = (lambert_diffuse_term_flash + phong_specular_term_flash)*(pow(cos_angle, 5));
+         }
     }
 
-    // Cor final com correção gamma, considerando monitor sRGB.
-    // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
+    if(sin_pos_light > 0.0){
+        color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + phong_specular_term_time_sun;
+    }
+    if(sin_pos_light < 0.0){
+        color_time_moon.rgb = sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
+    }
+
+    color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
+
+    if(object_id == MOON || object_id == PATH ){
+        color.rgb = Ka*vec3(1.0, 1.0, 1.0);
+    }
+    if(object_id == SUN){
+        if(cos_pos_light < 0){
+            color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.3), max(sin_pos_light,0.3));
+        }
+        else{
+            color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.7), max(sin_pos_light,0.7));
+        }
+
+    }
+
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 
-    if(object_id == SUN || object_id == MOON || object_id == PATH ){
-        color.rgb = ambient_term_flash;
-    }
 }
 

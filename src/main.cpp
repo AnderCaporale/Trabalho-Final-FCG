@@ -15,6 +15,7 @@
 //  vira
 //    #include <cstdio> // Em C++
 //
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -396,6 +397,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&gunModel);
     BuildTrianglesAndAddToVirtualScene(&gunModel);
 
+    ObjModel cubeModel("../../data/cube.obj");
+    ComputeNormals(&cubeModel);
+    BuildTrianglesAndAddToVirtualScene(&cubeModel);
+
     // Construímos a representação de um triângulo
     GLuint vertex_array_object_id = BuildTriangles();
 
@@ -463,7 +468,7 @@ int main(int argc, char* argv[])
         float z = cos(g_CameraPhi)*sin(g_CameraTheta);
 
         // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        glm::vec4 camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
+        glm::vec4 camera_view_vector = normalize(glm::vec4(x, y, z, 0.0f)); // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
         glm::vec4 front_vec = camera_view_vector;
         front_vec.y = 0.0f;
@@ -546,6 +551,7 @@ int main(int argc, char* argv[])
         #define FLASHLIGHT    5
         #define SUN    6
         #define MOON   7
+        #define CUBE   8
 
 
 
@@ -582,33 +588,37 @@ int main(int argc, char* argv[])
                 model = Matrix_Identity();
 
                 if ( paredes[i][j] == 1 ){
-                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
+                    model = Matrix_Translate(j-13.5, -0.5f, i - 19.5f )*
                             Matrix_Scale(1.0f, 1.0f, 0.01f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, BUNNY);
-                    DrawCube(render_as_black_uniform);
+                    glUniform1i(g_object_id_uniform, CUBE);
+                    DrawVirtualObject("the_cube");
+                    // DrawCube(render_as_black_uniform);
 
                 } else if ( paredes[i][j] == 2 ){
 
-                    model = Matrix_Translate(j-13 + 0.495f, 0, i-19) *
+                    model = Matrix_Translate(j-12.5, -0.5f, i-19.5) *
                             Matrix_Scale(0.01f, 1.0f, 1.00f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, SPHERE);
-                    DrawCube(render_as_black_uniform);
+                    glUniform1i(g_object_id_uniform, CUBE);
+                    DrawVirtualObject("the_cube");
+                    // DrawCube(render_as_black_uniform);
 
                 } else if ( paredes[i][j] == 3 ){
                     model = Matrix_Identity();
-                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
+                    model = Matrix_Translate(j-13.5, -0.5f, i-19.5)*
                             Matrix_Scale(1.0f, 1.0f, 0.01f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, BUNNY);
-                    DrawCube(render_as_black_uniform);
+                    glUniform1i(g_object_id_uniform, CUBE);
+                    DrawVirtualObject("the_cube");
+                    // DrawCube(render_as_black_uniform);
 
-                    model = Matrix_Translate(j-13 + 0.495f, 0, i-19) *
+                    model = Matrix_Translate(j-12.5, -0.5f, i-19.5) *
                             Matrix_Scale(0.01f, 1.0f, 1.00f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, SPHERE);
-                    DrawCube(render_as_black_uniform);
+                    glUniform1i(g_object_id_uniform, CUBE);
+                    DrawVirtualObject("the_cube");
+                    // DrawCube(render_as_black_uniform);
 
                 }
             }
@@ -616,11 +626,11 @@ int main(int argc, char* argv[])
 
         //Desenha o chão
         model = Matrix_Identity();
-        model = Matrix_Translate(0, -0.505f, -12 )*
+        model = Matrix_Translate(-13, -0.505f, -25 )*
                 Matrix_Scale(26.0f, 0.01f, 26.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
-        DrawCube(render_as_black_uniform);
+        DrawVirtualObject("the_cube");
 
         //Desenha o caminho correto
         if(tecla_R_pressionada){
@@ -643,7 +653,6 @@ int main(int argc, char* argv[])
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, BUNNY);
             DrawVirtualObject("the_bunny");
-
         }
 
 
@@ -1727,7 +1736,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
      if (key == GLFW_KEY_W){ // Movimento para frente
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[0] = 0.05f;
+            g_CameraSpeed[0] = 0.02f;
         } if(action == GLFW_RELEASE) {
             g_CameraSpeed[0] = 0.0f;
         }
@@ -1735,7 +1744,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
     if (key == GLFW_KEY_A) { // Movimento para a esquerda
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[1] = 0.05f;
+            g_CameraSpeed[1] = 0.02f;
         } if(action == GLFW_RELEASE) {
             g_CameraSpeed[1] = 0.0f;
         }
@@ -1743,7 +1752,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
     if (key == GLFW_KEY_S) { // Movimento para tras
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[2] = 0.05f;
+            g_CameraSpeed[2] = 0.02f;
         } if(action == GLFW_RELEASE) {
             g_CameraSpeed[2] = 0.0f;
         }
@@ -1751,7 +1760,7 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
     if (key == GLFW_KEY_D) { // Movimento para a direita
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[3] = 0.05f;
+            g_CameraSpeed[3] = 0.02f;
         } if(action == GLFW_RELEASE) {
             g_CameraSpeed[3] = 0.0f;
         }
