@@ -466,7 +466,7 @@ int main(int argc, char* argv[])
         glm::vec4 camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
         glm::vec4 front_vec = camera_view_vector;
-        front_vec.y = 0.0f;
+        //front_vec.y = 0.0f;
         front_vec = front_vec / norm(front_vec);
         glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
         glm::vec4 camera_new_position = camera_position_c + front_vec * g_CameraSpeed[0]
