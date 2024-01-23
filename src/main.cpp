@@ -199,18 +199,13 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // renderização.
 float g_CameraTheta = -M_PI_2 ; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
-float g_CameraTheta_backup; ; // Ângulo no plano ZX em relação ao eixo Z
-float g_CameraPhi_backup;   // Ângulo em relação ao eixo Y
 
-float g_CameraDistance = 0.1f; // Distância da câmera para a origem
+float g_CameraTheta_backup_Free;
+float g_CameraPhi_backup_Free;
+float g_CameraTheta_backup_lookAt;
+float g_CameraPhi_backup_lookAt;
 
-// Variáveis que controlam rotação do antebraço
-float g_ForearmAngleZ = 0.0f;
-float g_ForearmAngleX = 0.0f;
-
-// Variáveis que controlam translação do torso
-float g_TorsoPositionX = 0.0f;
-float g_TorsoPositionY = 0.0f;
+float g_CameraDistance = 4.5f; // Distância da câmera para a origem
 
 // Variável que controla o tipo de projeção utilizada: perspectiva ou ortográfica.
 bool g_UsePerspectiveProjection = true;
@@ -244,20 +239,20 @@ bool tecla_S_pressionada = false;
 bool tecla_D_pressionada = false;
 bool tecla_R_pressionada = false;
 bool tecla_F_pressionada = false;
-bool tecla_Z_pressionada = false;
+bool tecla_C_pressionada = false;
+bool tecla_L_pressionada = false;
 bool tecla_TAB_pressionada = false;
 
-float speed = 1.0f; // Velocidade da câmera
-float g_CameraSpeed[4] = {0.0f};
-glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
-glm::vec4 camera_view_vector;
+float speed = 2.0f; // Velocidade da câmera
+glm::vec4 camera_position_c;
 
 typedef struct {
     float x,y,z,dir;
 } Wall;
 
 
-int paredes[21][26] = {
+int paredes[22][26] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {2, 1, 1, 1, 3, 1, 3, 1, 1, 1, 3, 1, 1, 0, 1, 3, 1, 3, 1, 1, 1, 1, 3, 1, 1, 3},
     {2, 2, 1, 2, 0, 2, 0, 1, 1, 2, 1, 2, 1, 1, 3, 0, 3, 0, 0, 1, 3, 1, 0, 1, 0, 3},
     {2, 1, 2, 2, 2, 1, 2, 1, 3, 1, 2, 1, 0, 3, 0, 2, 0, 1, 1, 1, 2, 1, 3, 0, 3, 2},
@@ -286,15 +281,15 @@ typedef struct {
 } Coordenadas;
 
 Coordenadas CaminhoCorreto[80] = {
-    {0,0}, {0,1}, {-1, 1}, {-1,2}, {-1,3}, {-1,4}, {0,4}, {0,3}, {1,3}, {1,4}, {2,4}, {2,5}, {3,5}, {3,6},
-    {4,6}, {4,7}, {5,7}, {5,6}, {5,5}, {6,5}, {6,4}, {7,4}, {7,3}, {8,3}, {8,4}, {8,5}, {7,5}, {7,6}, {7,7},
-    {7,8}, {6,8}, {5,8}, {4,8}, {4,9}, {3,9}, {3,10}, {3,11}, {3,12}, {2,12}, {2,11}, {1,11}, {0,11}, {0,12},
-    {-1,12}, {-1,11}, {-1,10},{-2,10}, {-2,11}, {-3,11}, {-4,11}, {-5,11}, {-5,12}, {-4,12}, {-3,12}, {-3,13},
-    {-2,13},{-2,14}, {-3,14}, {-4,14}, {-5,14}, {-5,15}, {-4,15}, {-4,16}, {-3,16}, {-3,17}, {-2,17}, {-2,18},
-    {-1,18}, {0,18}, {0,19}, {0,20}, {0,21}
+    {0,-2}, {0,-1}, {0,0}, {-1, 0}, {-1,1}, {-1,2}, {-1,3}, {0,3}, {0,2}, {1,2}, {1,3}, {2,3}, {2,4}, {3,4}, {3,5},
+    {4,5}, {4,6}, {5,6}, {5,5}, {5,4}, {6,4}, {6,3}, {7,3}, {7,2}, {8,2}, {8,3}, {8,4}, {7,4}, {7,5}, {7,6},
+    {7,7}, {6,7}, {5,7}, {4,7}, {4,8}, {3,8}, {3,9}, {3,10}, {3,11}, {2,11}, {2,10}, {1,10}, {0,10}, {0,11},
+    {-1,11}, {-1,10}, {-1,9},{-2,9}, {-2,10}, {-3,10}, {-4,10}, {-5,10}, {-5,11}, {-4,11}, {-3,11}, {-3,12},
+    {-2,12},{-2,13}, {-3,13}, {-4,13}, {-5,13}, {-5,14}, {-4,14}, {-4,15}, {-3,15}, {-3,16}, {-2,16}, {-2,17},
+    {-1,17}, {0,17}, {0,18}, {0,19}, {0,20}, {0,21}
 };
 
-float posX, posZ;
+float  posXFree , posZFree, posXLookAt , posZLookAt ;
 glm::vec4 camera_view_vector_backup;
 
 int main(int argc, char* argv[])
@@ -420,8 +415,6 @@ int main(int argc, char* argv[])
 
     // Habilitamos o Z-buffer. Veja slides 104-116 do documento Aula_09_Projecoes.pdf.
     glEnable(GL_DEPTH_TEST);
-    glClear(GL_DEPTH_BUFFER_BIT);
-
 
     // Habilitamos o Backface Culling. Veja slides 23-34 do documento Aula_13_Clipping_and_Culling.pdf e slides 112-123 do documento Aula_14_Laboratorio_3_Revisao.pdf.
     glEnable(GL_CULL_FACE);
@@ -432,17 +425,13 @@ int main(int argc, char* argv[])
     // variáveis g_CameraDistance, g_CameraPhi, e g_CameraTheta são
     // controladas pelo mouse do usuário. Veja as funções CursorPosCallback()
     // e ScrollCallback().
-    float r = g_CameraDistance;
-    float y = r*sin(g_CameraPhi);
-    float z = r*cos(g_CameraPhi)*cos(g_CameraTheta);
-    float x = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
     // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
     // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-    camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-    //glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-    //camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-    //glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+    camera_position_c  = glm::vec4(0,0,0,1.0f); // Ponto "c", centro da câmera
+    glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+    glm::vec4 camera_view_vector = glm::vec4(0, 0, 0, 0.0f); // Vetor "view", sentido para onde a câmera está virada
+    glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 
     float prev_time = (float)glfwGetTime();
     float delta_t;
@@ -458,7 +447,6 @@ int main(int argc, char* argv[])
     int tempo = 0;
     float segundosCicloDia = 60;
 
-
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -468,30 +456,55 @@ int main(int argc, char* argv[])
         glUniform1i(g_segundos_ciclo_dia, segundosCicloDia);
 
         // Computação da posição da câmera
-        float y = sin(g_CameraPhi);
-        float x = cos(g_CameraPhi)*cos(g_CameraTheta);
-        float z = cos(g_CameraPhi)*sin(g_CameraTheta);
+        float r = g_CameraDistance;
+        float y = r*sin(g_CameraPhi);
+        float x = r*cos(g_CameraPhi)*cos(g_CameraTheta);
+        float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
-        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-        camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
-        glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
-        glm::vec4 front_vec = camera_view_vector;
-        if (!tecla_Z_pressionada){
-            front_vec.y = 0.0f;
-            camera_position_c.y=0;
+        if (tecla_L_pressionada){   //Camera Look-At
+            camera_position_c  = glm::vec4(x, y, z-23, 1.0f); // Ponto "c", centro da câmera
+            camera_lookat_l    = glm::vec4(0.0f,0.0f,-24.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
+            camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
+
+        } else {    //Camera Normal
+
+            // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+            camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
+
+            glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
+            if (!tecla_C_pressionada){  //Camera Livre
+                vetor_w.y = 0.0f;
+                camera_position_c.y=0;
+            }
+            glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
+
+            // Atualiza delta de tempo
+            float current_time = (float)glfwGetTime();
+            delta_t = current_time - prev_time;
+            prev_time = current_time;
+
+            if (tecla_W_pressionada){
+                // Movimenta câmera para frente
+                camera_position_c += -vetor_w * speed * delta_t;
+            }
+
+            if (tecla_A_pressionada){
+                // Movimenta câmera para esquerda
+                camera_position_c += -vetor_u * speed * delta_t;
+            }
+
+            if (tecla_S_pressionada){
+                // Movimenta câmera para trás
+                camera_position_c += vetor_w * speed * delta_t;
+            }
+
+            if (tecla_D_pressionada){
+                // Movimenta câmera para direita
+                camera_position_c += vetor_u * speed * delta_t;
+            }
         }
-        front_vec = front_vec / norm(front_vec);
-        glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
-        glm::vec4 camera_new_position = camera_position_c + front_vec * g_CameraSpeed[0]
-                                                          - front_vec * g_CameraSpeed[2]
-                                                          - side_vec  * g_CameraSpeed[1]
-                                                          + side_vec  * g_CameraSpeed[3];
-        glm::vec4 move_direction = camera_new_position - camera_position_c;
 
-        // Computamos a matriz "View" utilizando os parâmetros da câmera para
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
-
-        camera_position_c += move_direction;
 
         glUniform1f(flashligth_pos_x, camera_position_c[0]);
         glUniform1f(flashligth_pos_y, camera_position_c[1]);
@@ -571,8 +584,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
 
-        //std::cout << sin(M_PI/15*seconds) << std::endl;
-
         //Desenhamos o modelo da lua
         model = Matrix_Identity();
         model = Matrix_Translate(cos(M_PI/segundosCicloDia*seconds)*19, -sin(M_PI/segundosCicloDia*seconds)*19, -13.0f)
@@ -582,9 +593,9 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_sphere");
 
         glBindVertexArray(vertex_array_object_id);
-         // Desenho do labirinto
 
-        for (int i = 0; i<21; ++i) {
+        // Desenho do labirinto
+        for (int i = 0; i<22; ++i) {
             for (int j = 0; j < 26; ++j){
                 model = Matrix_Identity();
 
@@ -624,7 +635,7 @@ int main(int argc, char* argv[])
         //Desenha o chão
         model = Matrix_Identity();
         model = Matrix_Translate(0, -0.505f, -12 )*
-                Matrix_Scale(26.0f, 0.01f, 26.0f);
+                Matrix_Scale(26.0f, 0.01f, 27.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawCube(render_as_black_uniform);
@@ -653,22 +664,26 @@ int main(int argc, char* argv[])
 
         }
 
-
         // Desenhamos o modelo da vaca
         model = Matrix_Identity();
-        model = Matrix_Translate(0.0f, 0.0f, -24.0f)
-                * Matrix_Rotate_Y(g_AngleY);
+        model = Matrix_Translate(0.0f, g_AngleY, -24.0f)
+                * Matrix_Rotate_Y(g_AngleX);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, COW);
-
+        g_AngleX += 0.01;
         DrawVirtualObject("the_cow");
-        g_AngleY += 0.01;
-
+        int i;
+        if(g_AngleY > 0.5){
+            i = -1;
+        }
+        if(g_AngleY <= 0){
+            i = 1;
+        }
+        g_AngleY += 0.01*i;
 
 
         glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
         if(tecla_TAB_pressionada == 1){
-
             //Desenhamos o modelo da lanterna, grudada na tela
             model = Matrix_Translate(0.25, -0.35, -0.7)
                 * Matrix_Scale(0.1f, 0.1f, 0.1f)
@@ -677,9 +692,7 @@ int main(int argc, char* argv[])
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, FLASHLIGHT);
             glClear(GL_DEPTH_BUFFER_BIT);
-            //glDisable(GL_DEPTH_TEST);
             DrawVirtualObject("the_flashlight");
-            //glEnable(GL_DEPTH_TEST);
         } else {
             tecla_F_pressionada = 0;
             //Desenhamos o modelo da arma, grudada na tela
@@ -690,10 +703,7 @@ int main(int argc, char* argv[])
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, FLASHLIGHT);
             glClear(GL_DEPTH_BUFFER_BIT);
-            //glDisable(GL_DEPTH_TEST);
             DrawVirtualObject("the_gun");
-            //glEnable(GL_DEPTH_TEST);
-
         }
 
         if (tecla_F_pressionada){
@@ -702,45 +712,6 @@ int main(int argc, char* argv[])
             glUniform1i(g_flashlight_on_uniform, 0);
         }
 
-        /*
-        y = sin(g_CameraPhi);
-        z = cos(g_CameraPhi)*cos(g_CameraTheta);
-        x = cos(g_CameraPhi)*sin(g_CameraTheta);
-
-        camera_view_vector = glm::vec4(-x,-y,-z,0.0f);
-
-        glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
-        glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
-        //glm::vec4 vetor_v = crossproduct(vetor_w, vetor_u);
-        */
-
-        // Atualiza delta de tempo
-        float current_time = (float)glfwGetTime();
-        delta_t = current_time - prev_time;
-        prev_time = current_time;
-
-        // Realiza movimentação de objetos
-        if (tecla_W_pressionada){
-            // Movimenta câmera para frente
-            //camera_position_c += -vetor_w * speed * delta_t;
-        }
-
-        if (tecla_A_pressionada){
-            // Movimenta câmera para esquerda
-            //camera_position_c += -vetor_u * speed * delta_t;
-        }
-
-        if (tecla_S_pressionada){
-            // Movimenta câmera para tras
-            //camera_position_c += vetor_w * speed * delta_t;
-        }
-
-        if (tecla_D_pressionada){
-            // Movimenta câmera para direita
-            //camera_position_c += vetor_u * speed * delta_t;
-        }
-
-        //glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
         // O framebuffer onde OpenGL executa as operações de renderização não
         // é o mesmo que está sendo mostrado para o usuário, caso contrário
@@ -1608,17 +1579,46 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
     // parâmetros que definem a posição da câmera dentro da cena virtual.
     // Assim, temos que o usuário consegue controlar a câmera.
 
+    if(tecla_L_pressionada){
+        //if (!g_LeftMouseButtonPressed)
+        //    return;
 
+        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
+        float dx = xpos - SCREEN_WIDTH/2;
+        float dy = SCREEN_HEIGHT/2 - ypos;
+
+        // Atualizamos parâmetros da câmera com os deslocamentos
+        g_CameraTheta -= 0.005f*dx;
+        g_CameraPhi   += 0.005f*dy;
+
+        // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
+        float phimax = 3.141592f/2;
+        float phimin = -phimax;
+
+        if (g_CameraPhi > phimax)
+            g_CameraPhi = phimax;
+
+        if (g_CameraPhi < phimin)
+            g_CameraPhi = phimin;
+
+        // Atualizamos as variáveis globais para armazenar a posição atual do
+        // cursor como sendo a última posição conhecida do cursor.
+        g_LastCursorPosX = xpos;
+        g_LastCursorPosY = ypos;
+
+        glfwSetCursorPos(window, SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+
+    } else {
        if (xpos != SCREEN_WIDTH/2 || ypos != SCREEN_HEIGHT/2){
             float dx = xpos - SCREEN_WIDTH/2;
             float dy = SCREEN_HEIGHT/2 - ypos;
 
             // Atualizamos parâmetros da câmera com os deslocamentos
             g_CameraTheta += 0.005f*dx;
-            g_CameraPhi      += 0.005f*dy;
+            g_CameraPhi   += 0.005f*dy;
 
             // Em coordenadas esféricas, o ângulo phi deve ficar entre -pi/2 e +pi/2.
-            float phimax = M_PI_2;
+            float phimax = 3.141592f/2;
             float phimin = -phimax;
 
             if (g_CameraPhi > phimax)
@@ -1634,39 +1634,8 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos)
 
             glfwSetCursorPos(window, SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
         }
-
-
-    if (g_RightMouseButtonPressed)
-    {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
-
-        // Atualizamos parâmetros da antebraço com os deslocamentos
-        g_ForearmAngleZ -= 0.01f*dx;
-        g_ForearmAngleX += 0.01f*dy;
-
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
     }
 
-    if (g_MiddleMouseButtonPressed)
-    {
-        // Deslocamento do cursor do mouse em x e y de coordenadas de tela!
-        float dx = xpos - g_LastCursorPosX;
-        float dy = ypos - g_LastCursorPosY;
-
-        // Atualizamos parâmetros da antebraço com os deslocamentos
-        g_TorsoPositionX += 0.01f*dx;
-        g_TorsoPositionY -= 0.01f*dy;
-
-        // Atualizamos as variáveis globais para armazenar a posição atual do
-        // cursor como sendo a última posição conhecida do cursor.
-        g_LastCursorPosX = xpos;
-        g_LastCursorPosY = ypos;
-    }
 }
 
 // Função callback chamada sempre que o usuário movimenta a "rodinha" do mouse.
@@ -1702,16 +1671,13 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
     /*
+    //O código abaixo implementa a seguinte lógica:
+    //Se apertar tecla X       então g_AngleX += delta;
+    //Se apertar tecla shift+X então g_AngleX -= delta;
+
+    //float delta = 3.141592 / 16; // 22.5 graus, em radianos.
+
     if (key == GLFW_KEY_X && action == GLFW_PRESS)
     {
         g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
@@ -1733,45 +1699,45 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
      if (key == GLFW_KEY_W){ // Movimento para frente
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[0] = 0.05f;
+            tecla_W_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[0] = 0.0f;
+            tecla_W_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_A) { // Movimento para a esquerda
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[1] = 0.05f;
+            tecla_A_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[1] = 0.0f;
+            tecla_A_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_S) { // Movimento para tras
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[2] = 0.05f;
+            tecla_S_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[2] = 0.0f;
+            tecla_S_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_D) { // Movimento para a direita
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[3] = 0.05f;
+            tecla_D_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[3] = 0.0f;
+            tecla_D_pressionada = false;
         }
     }
 
-     if (key == GLFW_KEY_SPACE)
+    if (key == GLFW_KEY_SPACE)
     {
         if (action == GLFW_PRESS)
             // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            speed = 3.0f;
+            speed = 3.5f;
 
         else if (action == GLFW_RELEASE)
             // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            speed = 1.0f;
+            speed = 2.0f;
 
     }
 
@@ -1786,21 +1752,21 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
         tecla_F_pressionada = !tecla_F_pressionada;
     }
 
-    if (key == GLFW_KEY_Z && action == GLFW_PRESS)
+    if (key == GLFW_KEY_C && action == GLFW_PRESS)
     {
-        if(!tecla_Z_pressionada){
-            posX = camera_position_c.x;
-            posZ = camera_position_c.z;
-            g_CameraPhi_backup = g_CameraPhi;
-            g_CameraTheta_backup = g_CameraTheta;
+        if(!tecla_C_pressionada){
+            posXFree = camera_position_c.x;
+            posZFree = camera_position_c.z;
+            g_CameraPhi_backup_Free = g_CameraPhi;
+            g_CameraTheta_backup_Free = g_CameraTheta;
         } else{
-            camera_position_c.x = posX;
-            camera_position_c.z = posZ;
-            g_CameraPhi = g_CameraPhi_backup;
-            g_CameraTheta = g_CameraTheta_backup;
+            camera_position_c.x = posXFree;
+            camera_position_c.z = posZFree;
+            g_CameraPhi = g_CameraPhi_backup_Free;
+            g_CameraTheta = g_CameraTheta_backup_Free;
         }
 
-        tecla_Z_pressionada = !tecla_Z_pressionada;
+        tecla_C_pressionada = !tecla_C_pressionada;
 
     }
 
@@ -1808,6 +1774,25 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     {
         tecla_TAB_pressionada = !tecla_TAB_pressionada;
     }
+    if (key == GLFW_KEY_L && action == GLFW_PRESS)
+    {
+        if(!tecla_L_pressionada){
+            posXLookAt = camera_position_c.x;
+            posZLookAt = camera_position_c.z;
+            g_CameraPhi_backup_lookAt = g_CameraPhi;
+            g_CameraTheta_backup_lookAt = g_CameraTheta;
+        } else{
+            camera_position_c.x = posXLookAt;
+            camera_position_c.z = posZLookAt;
+            g_CameraPhi = g_CameraPhi_backup_lookAt;
+            g_CameraTheta = g_CameraTheta_backup_lookAt;
+        }
+
+        tecla_L_pressionada = !tecla_L_pressionada;
+    }
+
+
+
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal
