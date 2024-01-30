@@ -16,6 +16,7 @@
 //    #include <cstdio> // Em C++
 //
 #define _USE_MATH_DEFINES
+#define STB_IMAGE_IMPLEMENTATION
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -45,72 +46,32 @@
 // Headers da biblioteca para carregar modelos obj
 #include <tiny_obj_loader.h>
 
+#include "stb_image.h"
+
 // Headers locais, definidos na pasta "include/"
 #include "utils.h"
 #include "matrices.h"
+#include "structs.hpp"
+#include "collisions.hpp"
 
 // Tamanho da tela
 #define SCREEN_WIDTH    800
 #define SCREEN_HEIGHT   800
 
-// Estrutura que representa um modelo geométrico carregado a partir de um
-// arquivo ".obj". Veja https://en.wikipedia.org/wiki/Wavefront_.obj_file .
-struct ObjModel
-{
-    tinyobj::attrib_t                 attrib;
-    std::vector<tinyobj::shape_t>     shapes;
-    std::vector<tinyobj::material_t>  materials;
+#define SPHERE      0
+#define BUNNY       1
+#define PLANE       2
+#define PATH        3
+#define COW         4
+#define FLASHLIGHT  5
+#define SUN         6
+#define MOON        7
+#define CUBEXY      8
+#define CUBEYZ      9
 
-    // Este construtor lê o modelo de um arquivo utilizando a biblioteca tinyobjloader.
-    // Veja: https://github.com/syoyo/tinyobjloader
-    ObjModel(const char* filename, const char* basepath = NULL, bool triangulate = true)
-    {
-        printf("Carregando objetos do arquivo \"%s\"...\n", filename);
-
-        // Se basepath == NULL, então setamos basepath como o dirname do
-        // filename, para que os arquivos MTL sejam corretamente carregados caso
-        // estejam no mesmo diretório dos arquivos OBJ.
-        std::string fullpath(filename);
-        std::string dirname;
-        if (basepath == NULL)
-        {
-            auto i = fullpath.find_last_of("/");
-            if (i != std::string::npos)
-            {
-                dirname = fullpath.substr(0, i+1);
-                basepath = dirname.c_str();
-            }
-        }
-
-        std::string warn;
-        std::string err;
-        bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filename, basepath, triangulate);
-
-        if (!err.empty())
-            fprintf(stderr, "\n%s\n", err.c_str());
-
-        if (!ret)
-            throw std::runtime_error("Erro ao carregar modelo.");
-
-        for (size_t shape = 0; shape < shapes.size(); ++shape)
-        {
-            if (shapes[shape].name.empty())
-            {
-                fprintf(stderr,
-                        "*********************************************\n"
-                        "Erro: Objeto sem nome dentro do arquivo '%s'.\n"
-                        "Veja https://www.inf.ufrgs.br/~eslgastal/fcg-faq-etc.html#Modelos-3D-no-formato-OBJ .\n"
-                        "*********************************************\n",
-                    filename);
-                throw std::runtime_error("Objeto sem nome.");
-            }
-            printf("- Objeto '%s'\n", shapes[shape].name.c_str());
-        }
-
-        printf("OK.\n");
-    }
-};
-
+#define XYWALL      1
+#define YZWALL      2
+#define XY_YZWALL   3
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
@@ -123,6 +84,7 @@ GLuint BuildTriangles(); // Constrói triângulos para renderização
 void BuildTrianglesAndAddToVirtualScene(ObjModel*); // Constrói representação de um ObjModel como malha de triângulos para renderização
 void ComputeNormals(ObjModel* model); // Computa normais de um ObjModel, caso não existam.
 void LoadShadersFromFiles(); // Carrega os shaders de vértice e fragmento, criando um programa de GPU
+void LoadTextureImage(const char* filename);
 void DrawVirtualObject(const char* object_name); // Desenha um objeto armazenado em g_VirtualScene
 GLuint LoadShader_Vertex(const char* filename);   // Carrega um vertex shader
 GLuint LoadShader_Fragment(const char* filename); // Carrega um fragment shader
@@ -158,17 +120,6 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-// Definimos uma estrutura que armazenará dados necessários para renderizar
-// cada objeto da cena virtual.
-struct SceneObject
-{
-    std::string  name;        // Nome do objeto
-    size_t       first_index; // Índice do primeiro vértice dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
-    size_t       num_indices; // Número de índices do objeto dentro do vetor indices[] definido em BuildTrianglesAndAddToVirtualScene()
-    GLenum       rendering_mode; // Modo de rasterização (GL_TRIANGLES, GL_TRIANGLE_STRIP, etc.)
-    GLuint       vertex_array_object_id; // ID do VAO onde estão armazenados os atributos do modelo
-};
-
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
 
 // A cena virtual é uma lista de objetos nomeados, guardados em um dicionário
@@ -198,7 +149,7 @@ bool g_MiddleMouseButtonPressed = false; // Análogo para botão do meio do mous
 // usuário através do mouse (veja função CursorPosCallback()). A posição
 // efetiva da câmera é calculada dentro da função main(), dentro do loop de
 // renderização.
-float g_CameraTheta = -M_PI_2 ; // Ângulo no plano ZX em relação ao eixo Z
+float g_CameraTheta = -M_PI_2; // Ângulo no plano ZX em relação ao eixo Z
 float g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
 float g_CameraDistance = 0.1f; // Distância da câmera para a origem
 
@@ -235,6 +186,9 @@ GLfloat flashligth_dir_x;
 GLfloat flashligth_dir_y;
 GLfloat flashligth_dir_z;
 
+GLuint g_NumLoadedTextures = 0;
+GLint g_bbox_min_uniform;
+GLint g_bbox_max_uniform;
 
 bool tecla_W_pressionada = false;
 bool tecla_A_pressionada = false;
@@ -244,14 +198,12 @@ bool tecla_R_pressionada = false;
 bool tecla_F_pressionada = false;
 bool tecla_TAB_pressionada = false;
 
-float speed = 1.0f; // Velocidade da câmera
-float g_CameraSpeed[4] = {0.0f};
+float speed = 3.0f; // Velocidade da câmera
+glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec4 player_position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
 glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
-typedef struct {
-    float x,y,z,dir;
-} Wall;
-
+std::vector<Wall> walls;
 
 int paredes[21][26] = {
     {2, 1, 1, 1, 3, 1, 3, 1, 1, 1, 3, 1, 1, 0, 1, 3, 1, 3, 1, 1, 1, 1, 3, 1, 1, 3},
@@ -276,10 +228,6 @@ int paredes[21][26] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
-
-typedef struct {
-    float x,z;
-} Coordenadas;
 
 Coordenadas CaminhoCorreto[80] = {
     {0,0}, {0,1}, {-1, 1}, {-1,2}, {-1,3}, {-1,4}, {0,4}, {0,3}, {1,3}, {1,4}, {2,4}, {2,5}, {3,5}, {3,6},
@@ -351,6 +299,12 @@ int main(int argc, char* argv[])
     // biblioteca GLAD.
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
+    GLenum error;
+    while ((error = glGetError()) != GL_NO_ERROR) 
+    {
+        std::cout << "OpenGL error: " << error << std::endl;
+    }
+
     // Definimos a função de callback que será chamada sempre que a janela for
     // redimensionada, por consequência alterando o tamanho do "framebuffer"
     // (região de memória onde são armazenados os pixels da imagem).
@@ -369,6 +323,10 @@ int main(int argc, char* argv[])
     // para renderização. Veja slides 180-200 do documento Aula_03_Rendering_Pipeline_Grafico.pdf.
     //
     LoadShadersFromFiles();
+
+    LoadTextureImage("../../data/wallTexture.jpg");
+    LoadTextureImage("../../data/grassTexture.jpg");
+    LoadTextureImage("../../data/moonTexture.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/sphere.obj");
@@ -415,7 +373,6 @@ int main(int argc, char* argv[])
 
     GLint render_as_black_uniform = glGetUniformLocation(g_GpuProgramID, "render_as_black"); // Variável booleana em shader_vertex.glsl
 
-
     // Habilitamos o Z-buffer. Veja slides 104-116 do documento Aula_09_Projecoes.pdf.
     glEnable(GL_DEPTH_TEST);
 
@@ -435,10 +392,9 @@ int main(int argc, char* argv[])
 
     // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
     // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-    glm::vec4 camera_position_c  = glm::vec4(x,y,z,1.0f); // Ponto "c", centro da câmera
-    glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
-    glm::vec4 camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
-    glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+    glm::vec4 player_position = glm::vec4(x, y-0.495, z, 1.0f);
+    camera_position_c = player_position;
+    camera_position_c.y += 0.5f;
 
     float prev_time = (float)glfwGetTime();
     float delta_t;
@@ -453,6 +409,43 @@ int main(int argc, char* argv[])
     float cor_r=1,cor_g=1,cor_b=1;
     int tempo = 0;
     float segundosCicloDia = 30;
+
+    Wall wall;
+    for(int i=0; i<21; i++){
+        for(int j=0; j<26; j++){
+            if(paredes[i][j] == XYWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
+                wall.dir = CUBEXY;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 1.0f, 0.01f);
+            }
+            else if(paredes[i][j] == YZWALL){
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
+                wall.dir = CUBEYZ;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 1.0f, 1.0f);
+            }
+            else if(paredes[i][j] == XY_YZWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
+                wall.dir = CUBEXY;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 1.0f, 0.01f);
+                walls.push_back(wall);
+
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
+                wall.dir = CUBEYZ;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 1.0f, 1.0f);
+            }
+            if (paredes[i][j] != 0)
+                walls.push_back(wall);
+        }
+    }
+
+    std::cout << walls.size() << std::endl;
+    for(auto wall : walls){
+        std::cout << wall.position.x << " " << wall.position.y << " " << wall.position.z << std::endl;
+    }
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -472,18 +465,29 @@ int main(int argc, char* argv[])
         glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
         glm::vec4 front_vec = camera_view_vector;
         front_vec.y = 0.0f;
-        front_vec = front_vec / norm(front_vec);
+        front_vec = normalize(front_vec);
         glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
-        glm::vec4 camera_new_position = camera_position_c + front_vec * g_CameraSpeed[0]
-                                                          - front_vec * g_CameraSpeed[2]
-                                                          - side_vec  * g_CameraSpeed[1]
-                                                          + side_vec  * g_CameraSpeed[3];
-        glm::vec4 move_direction = camera_new_position - camera_position_c;
+        glm::vec4 player_new_position = player_position + front_vec * g_PlayerSpeed.x
+                                                        + side_vec  * g_PlayerSpeed.z
+                                                        + camera_up_vector * g_PlayerSpeed.y;
+        glm::vec4 move_direction = player_new_position - player_position;
+
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        checkCollisionWithWalls(player_position, move_direction, walls);
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
-        camera_position_c += move_direction;
+        player_position += move_direction;
+        camera_position_c = player_position;
+        camera_position_c.y += 0.5f;
 
         glUniform1f(flashligth_pos_x, camera_position_c[0]);
         glUniform1f(flashligth_pos_y, camera_position_c[1]);
@@ -542,20 +546,6 @@ int main(int argc, char* argv[])
         float field_of_view = 3.141592 / 3.0f;
         projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
 
-
-        #define SPHERE 0
-        #define BUNNY  1
-        #define PLANE  2
-        #define PATH   3
-        #define COW    4
-        #define FLASHLIGHT    5
-        #define SUN    6
-        #define MOON   7
-        #define CUBE   8
-
-
-
-
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
         // (GPU). Veja o arquivo "shader_vertex.glsl", onde estas são
         // efetivamente aplicadas em todos os pontos.
@@ -583,45 +573,10 @@ int main(int argc, char* argv[])
         glBindVertexArray(vertex_array_object_id);
          // Desenho do labirinto
 
-        for (int i = 0; i<21; ++i) {
-            for (int j = 0; j < 26; ++j){
-                model = Matrix_Identity();
-
-                if ( paredes[i][j] == 1 ){
-                    model = Matrix_Translate(j-13.5, -0.5f, i - 19.5f )*
-                            Matrix_Scale(1.0f, 1.0f, 0.01f);
-                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, CUBE);
-                    DrawVirtualObject("the_cube");
-                    // DrawCube(render_as_black_uniform);
-
-                } else if ( paredes[i][j] == 2 ){
-
-                    model = Matrix_Translate(j-12.5, -0.5f, i-19.5) *
-                            Matrix_Scale(0.01f, 1.0f, 1.00f);
-                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, CUBE);
-                    DrawVirtualObject("the_cube");
-                    // DrawCube(render_as_black_uniform);
-
-                } else if ( paredes[i][j] == 3 ){
-                    model = Matrix_Identity();
-                    model = Matrix_Translate(j-13.5, -0.5f, i-19.5)*
-                            Matrix_Scale(1.0f, 1.0f, 0.01f);
-                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, CUBE);
-                    DrawVirtualObject("the_cube");
-                    // DrawCube(render_as_black_uniform);
-
-                    model = Matrix_Translate(j-12.5, -0.5f, i-19.5) *
-                            Matrix_Scale(0.01f, 1.0f, 1.00f);
-                    glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
-                    glUniform1i(g_object_id_uniform, CUBE);
-                    DrawVirtualObject("the_cube");
-                    // DrawCube(render_as_black_uniform);
-
-                }
-            }
+        for(Wall wall : walls){
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(wall.model));
+            glUniform1i(g_object_id_uniform, wall.dir);
+            DrawVirtualObject("the_cube");
         }
 
         //Desenha o chão
@@ -700,63 +655,26 @@ int main(int argc, char* argv[])
             glUniform1i(g_flashlight_on_uniform, 0);
         }
 
-
-        /*
-        y = sin(g_CameraPhi);
-        z = cos(g_CameraPhi)*cos(g_CameraTheta);
-        x = cos(g_CameraPhi)*sin(g_CameraTheta);
-
-        camera_view_vector = glm::vec4(-x,-y,-z,0.0f);
-
-
-
-        glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
-        glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
-        //glm::vec4 vetor_v = crossproduct(vetor_w, vetor_u);
-        */
-        // Atualiza delta de tempo
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
         prev_time = current_time;
 
-        // Realiza movimentação de objetos
-        if (tecla_W_pressionada){
-            // Movimenta câmera para frente
-            //camera_position_c += -vetor_w * speed * delta_t;
-        }
+        // Realiza movimentação do jogador
+        if (tecla_W_pressionada)
+            g_PlayerSpeed.x = speed * delta_t;
+        if (tecla_S_pressionada)
+            g_PlayerSpeed.x = -speed * delta_t;
+        if (!tecla_W_pressionada && !tecla_S_pressionada)
+            g_PlayerSpeed.x = 0;
 
-        if (tecla_A_pressionada){
-            // Movimenta câmera para esquerda
-            //camera_position_c += -vetor_u * speed * delta_t;
-        }
+        if (tecla_A_pressionada)
+            g_PlayerSpeed.z = -speed * delta_t;
+        if (tecla_D_pressionada)
+            g_PlayerSpeed.z = speed * delta_t;
+        if (!tecla_A_pressionada && !tecla_D_pressionada)
+            g_PlayerSpeed.z = 0;
 
-        if (tecla_S_pressionada){
-            // Movimenta câmera para tras
-            //camera_position_c += vetor_w * speed * delta_t;
-        }
-
-        if (tecla_D_pressionada){
-            // Movimenta câmera para direita
-            //camera_position_c += vetor_u * speed * delta_t;
-        }
-
-        //glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
-
-
-
-
-        // O framebuffer onde OpenGL executa as operações de renderização não
-        // é o mesmo que está sendo mostrado para o usuário, caso contrário
-        // seria possível ver artefatos conhecidos como "screen tearing". A
-        // chamada abaixo faz a troca dos buffers, mostrando para o usuário
-        // tudo que foi renderizado pelas funções acima.
-        // Veja o link: https://en.wikipedia.org/w/index.php?title=Multiple_buffering&oldid=793452829#Double_buffering_in_computer_graphics
         glfwSwapBuffers(window);
-
-        // Verificamos com o sistema operacional se houve alguma interação do
-        // usuário (teclado, mouse, ...). Caso positivo, as funções de callback
-        // definidas anteriormente usando glfwSet*Callback() serão chamadas
-        // pela biblioteca GLFW.
         glfwPollEvents();
     }
 
@@ -775,6 +693,11 @@ void DrawVirtualObject(const char* object_name)
     // vértices apontados pelo VAO criado pela função BuildTrianglesAndAddToVirtualScene(). Veja
     // comentários detalhados dentro da definição de BuildTrianglesAndAddToVirtualScene().
     glBindVertexArray(g_VirtualScene[object_name].vertex_array_object_id);
+
+    glm::vec3 bbox_min = g_VirtualScene[object_name].bbox_min;
+    glm::vec3 bbox_max = g_VirtualScene[object_name].bbox_max;
+    glUniform4f(g_bbox_min_uniform, bbox_min.x, bbox_min.y, bbox_min.z, 1.0f);
+    glUniform4f(g_bbox_max_uniform, bbox_max.x, bbox_max.y, bbox_max.z, 1.0f);
 
     // Pedimos para a GPU rasterizar os vértices dos eixos XYZ
     // apontados pelo VAO como linhas. Veja a definição de
@@ -908,6 +831,15 @@ void LoadShadersFromFiles()
     flashligth_dir_y = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_y");
     flashligth_dir_z = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_z");
 
+    g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
+    g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
+
+    // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
+    glUseProgram(g_GpuProgramID);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "wallTexture"), 0);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "grassTexture"), 1);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "moonTexture"), 2);
+    glUseProgram(0);
 }
 
 // Função que pega a matriz M e guarda a mesma no topo da pilha
@@ -1245,7 +1177,6 @@ GLuint BuildTriangles()
     return vertex_array_object_id;
 }
 
-// Constrói triângulos para futura renderização a partir de um ObjModel.
 void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
 {
     GLuint vertex_array_object_id;
@@ -1261,6 +1192,12 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
     {
         size_t first_index = indices.size();
         size_t num_triangles = model->shapes[shape].mesh.num_face_vertices.size();
+
+        const float minval = std::numeric_limits<float>::min();
+        const float maxval = std::numeric_limits<float>::max();
+
+        glm::vec3 bbox_min = glm::vec3(maxval,maxval,maxval);
+        glm::vec3 bbox_max = glm::vec3(minval,minval,minval);
 
         for (size_t triangle = 0; triangle < num_triangles; ++triangle)
         {
@@ -1280,6 +1217,13 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
                 model_coefficients.push_back( vy ); // Y
                 model_coefficients.push_back( vz ); // Z
                 model_coefficients.push_back( 1.0f ); // W
+
+                bbox_min.x = std::min(bbox_min.x, vx);
+                bbox_min.y = std::min(bbox_min.y, vy);
+                bbox_min.z = std::min(bbox_min.z, vz);
+                bbox_max.x = std::max(bbox_max.x, vx);
+                bbox_max.y = std::max(bbox_max.y, vy);
+                bbox_max.z = std::max(bbox_max.z, vz);
 
                 // Inspecionando o código da tinyobjloader, o aluno Bernardo
                 // Sulzbach (2017/1) apontou que a maneira correta de testar se
@@ -1315,6 +1259,9 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
         theobject.num_indices    = last_index - first_index + 1; // Número de indices
         theobject.rendering_mode = GL_TRIANGLES;       // Índices correspondem ao tipo de rasterização GL_TRIANGLES.
         theobject.vertex_array_object_id = vertex_array_object_id;
+
+        theobject.bbox_min = bbox_min;
+        theobject.bbox_max = bbox_max;
 
         g_VirtualScene[model->shapes[shape].name] = theobject;
     }
@@ -1372,6 +1319,7 @@ void BuildTrianglesAndAddToVirtualScene(ObjModel* model)
     // alterar o mesmo. Isso evita bugs.
     glBindVertexArray(0);
 }
+
 
 // Carrega um Vertex Shader de um arquivo GLSL. Veja definição de LoadShader() abaixo.
 GLuint LoadShader_Vertex(const char* filename)
@@ -1705,21 +1653,6 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
         glfwSetWindowShouldClose(window, GL_TRUE);
 
-    // O código abaixo implementa a seguinte lógica:
-    //   Se apertar tecla X       então g_AngleX += delta;
-    //   Se apertar tecla shift+X então g_AngleX -= delta;
-    //   Se apertar tecla Y       então g_AngleY += delta;
-    //   Se apertar tecla shift+Y então g_AngleY -= delta;
-    //   Se apertar tecla Z       então g_AngleZ += delta;
-    //   Se apertar tecla shift+Z então g_AngleZ -= delta;
-
-    float delta = 3.141592 / 16; // 22.5 graus, em radianos.
-    /*
-    if (key == GLFW_KEY_X && action == GLFW_PRESS)
-    {
-        g_AngleX += (mod & GLFW_MOD_SHIFT) ? -delta : delta;
-    } */
-
     // Se o usuário apertar a tecla H, fazemos um "toggle" do texto informativo mostrado na tela.
     if (key == GLFW_KEY_H && action == GLFW_PRESS)
     {
@@ -1736,52 +1669,42 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
 
      if (key == GLFW_KEY_W){ // Movimento para frente
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[0] = 0.02f;
+            tecla_W_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[0] = 0.0f;
+            tecla_W_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_A) { // Movimento para a esquerda
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[1] = 0.02f;
+            tecla_A_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[1] = 0.0f;
+            tecla_A_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_S) { // Movimento para tras
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[2] = 0.02f;
+            tecla_S_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[2] = 0.0f;
+            tecla_S_pressionada = false;
         }
     }
 
     if (key == GLFW_KEY_D) { // Movimento para a direita
         if (action == GLFW_PRESS) {
-            g_CameraSpeed[3] = 0.02f;
+            tecla_D_pressionada = true;
         } if(action == GLFW_RELEASE) {
-            g_CameraSpeed[3] = 0.0f;
+            tecla_D_pressionada = false;
         }
     }
 
-     if (key == GLFW_KEY_SPACE)
+    if (key == GLFW_KEY_LEFT_SHIFT)
     {
         if (action == GLFW_PRESS)
-            // Usuário apertou a tecla D, então atualizamos o estado para pressionada
-            speed = 3.0f;
-
+            speed = 6.0f;
         else if (action == GLFW_RELEASE)
-            // Usuário largou a tecla D, então atualizamos o estado para NÃO pressionada
-            speed = 1.0f;
-
-        else if (action == GLFW_REPEAT)
-            // Usuário está segurando a tecla D e o sistema operacional está
-            // disparando eventos de repetição. Neste caso, não precisamos
-            // atualizar o estado da tecla, pois antes de um evento REPEAT
-            // necessariamente deve ter ocorrido um evento PRESS.
-            ;
+            speed = 3.0f;
     }
 
 
@@ -1811,63 +1734,63 @@ void ErrorCallback(int error, const char* description)
 // mesmo por todos os sistemas de coordenadas armazenados nas matrizes model,
 // view, e projection; e escreve na tela as matrizes e pontos resultantes
 // dessas transformações.
-void TextRendering_ShowModelViewProjection(
-    GLFWwindow* window,
-    glm::mat4 projection,
-    glm::mat4 view,
-    glm::mat4 model,
-    glm::vec4 p_model
-)
-{
-    if ( !g_ShowInfoText )
-        return;
+// void TextRendering_ShowModelViewProjection(
+//     GLFWwindow* window,
+//     glm::mat4 projection,
+//     glm::mat4 view,
+//     glm::mat4 model,
+//     glm::vec4 p_model
+// )
+// {
+//     if ( !g_ShowInfoText )
+//         return;
 
-    glm::vec4 p_world = model*p_model;
-    glm::vec4 p_camera = view*p_world;
-    glm::vec4 p_clip = projection*p_camera;
-    glm::vec4 p_ndc = p_clip / p_clip.w;
+//     glm::vec4 p_world = model*p_model;
+//     glm::vec4 p_camera = view*p_world;
+//     glm::vec4 p_clip = projection*p_camera;
+//     glm::vec4 p_ndc = p_clip / p_clip.w;
 
-    float pad = TextRendering_LineHeight(window);
+//     float pad = TextRendering_LineHeight(window);
 
-    TextRendering_PrintString(window, " Model matrix             Model     In World Coords.", -1.0f, 1.0f-pad, 1.0f);
-    TextRendering_PrintMatrixVectorProduct(window, model, p_model, -1.0f, 1.0f-2*pad, 1.0f);
+//     TextRendering_PrintString(window, " Model matrix             Model     In World Coords.", -1.0f, 1.0f-pad, 1.0f);
+//     TextRendering_PrintMatrixVectorProduct(window, model, p_model, -1.0f, 1.0f-2*pad, 1.0f);
 
-    TextRendering_PrintString(window, "                                        |  ", -1.0f, 1.0f-6*pad, 1.0f);
-    TextRendering_PrintString(window, "                            .-----------'  ", -1.0f, 1.0f-7*pad, 1.0f);
-    TextRendering_PrintString(window, "                            V              ", -1.0f, 1.0f-8*pad, 1.0f);
+//     TextRendering_PrintString(window, "                                        |  ", -1.0f, 1.0f-6*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            .-----------'  ", -1.0f, 1.0f-7*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            V              ", -1.0f, 1.0f-8*pad, 1.0f);
 
-    TextRendering_PrintString(window, " View matrix              World     In Camera Coords.", -1.0f, 1.0f-9*pad, 1.0f);
-    TextRendering_PrintMatrixVectorProduct(window, view, p_world, -1.0f, 1.0f-10*pad, 1.0f);
+//     TextRendering_PrintString(window, " View matrix              World     In Camera Coords.", -1.0f, 1.0f-9*pad, 1.0f);
+//     TextRendering_PrintMatrixVectorProduct(window, view, p_world, -1.0f, 1.0f-10*pad, 1.0f);
 
-    TextRendering_PrintString(window, "                                        |  ", -1.0f, 1.0f-14*pad, 1.0f);
-    TextRendering_PrintString(window, "                            .-----------'  ", -1.0f, 1.0f-15*pad, 1.0f);
-    TextRendering_PrintString(window, "                            V              ", -1.0f, 1.0f-16*pad, 1.0f);
+//     TextRendering_PrintString(window, "                                        |  ", -1.0f, 1.0f-14*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            .-----------'  ", -1.0f, 1.0f-15*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            V              ", -1.0f, 1.0f-16*pad, 1.0f);
 
-    TextRendering_PrintString(window, " Projection matrix        Camera                    In NDC", -1.0f, 1.0f-17*pad, 1.0f);
-    TextRendering_PrintMatrixVectorProductDivW(window, projection, p_camera, -1.0f, 1.0f-18*pad, 1.0f);
+//     TextRendering_PrintString(window, " Projection matrix        Camera                    In NDC", -1.0f, 1.0f-17*pad, 1.0f);
+//     TextRendering_PrintMatrixVectorProductDivW(window, projection, p_camera, -1.0f, 1.0f-18*pad, 1.0f);
 
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
+//     int width, height;
+//     glfwGetFramebufferSize(window, &width, &height);
 
-    glm::vec2 a = glm::vec2(-1, -1);
-    glm::vec2 b = glm::vec2(+1, +1);
-    glm::vec2 p = glm::vec2( 0,  0);
-    glm::vec2 q = glm::vec2(width, height);
+//     glm::vec2 a = glm::vec2(-1, -1);
+//     glm::vec2 b = glm::vec2(+1, +1);
+//     glm::vec2 p = glm::vec2( 0,  0);
+//     glm::vec2 q = glm::vec2(width, height);
 
-    glm::mat4 viewport_mapping = Matrix(
-        (q.x - p.x)/(b.x-a.x), 0.0f, 0.0f, (b.x*p.x - a.x*q.x)/(b.x-a.x),
-        0.0f, (q.y - p.y)/(b.y-a.y), 0.0f, (b.y*p.y - a.y*q.y)/(b.y-a.y),
-        0.0f , 0.0f , 1.0f , 0.0f ,
-        0.0f , 0.0f , 0.0f , 1.0f
-    );
+//     glm::mat4 viewport_mapping = Matrix(
+//         (q.x - p.x)/(b.x-a.x), 0.0f, 0.0f, (b.x*p.x - a.x*q.x)/(b.x-a.x),
+//         0.0f, (q.y - p.y)/(b.y-a.y), 0.0f, (b.y*p.y - a.y*q.y)/(b.y-a.y),
+//         0.0f , 0.0f , 1.0f , 0.0f ,
+//         0.0f , 0.0f , 0.0f , 1.0f
+//     );
 
-    TextRendering_PrintString(window, "                                                       |  ", -1.0f, 1.0f-22*pad, 1.0f);
-    TextRendering_PrintString(window, "                            .--------------------------'  ", -1.0f, 1.0f-23*pad, 1.0f);
-    TextRendering_PrintString(window, "                            V                           ", -1.0f, 1.0f-24*pad, 1.0f);
+//     TextRendering_PrintString(window, "                                                       |  ", -1.0f, 1.0f-22*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            .--------------------------'  ", -1.0f, 1.0f-23*pad, 1.0f);
+//     TextRendering_PrintString(window, "                            V                           ", -1.0f, 1.0f-24*pad, 1.0f);
 
-    TextRendering_PrintString(window, " Viewport matrix           NDC      In Pixel Coords.", -1.0f, 1.0f-25*pad, 1.0f);
-    TextRendering_PrintMatrixVectorProductMoreDigits(window, viewport_mapping, p_ndc, -1.0f, 1.0f-26*pad, 1.0f);
-}
+//     TextRendering_PrintString(window, " Viewport matrix           NDC      In Pixel Coords.", -1.0f, 1.0f-25*pad, 1.0f);
+//     TextRendering_PrintMatrixVectorProductMoreDigits(window, viewport_mapping, p_ndc, -1.0f, 1.0f-26*pad, 1.0f);
+// }
 
 // Escrevemos na tela os ângulos de Euler definidos nas variáveis globais
 // g_AngleX, g_AngleY, e g_AngleZ.
@@ -1901,207 +1824,259 @@ void TextRendering_ShowProjection(GLFWwindow* window)
 
 // Escrevemos na tela o número de quadros renderizados por segundo (frames per
 // second).
-void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
-{
-    if ( !g_ShowInfoText )
-        return;
+// void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
+// {
+//     if ( !g_ShowInfoText )
+//         return;
 
-    // Variáveis estáticas (static) mantém seus valores entre chamadas
-    // subsequentes da função!
-    static float old_seconds = (float)glfwGetTime();
-    static int   ellapsed_frames = 0;
-    static char  buffer[20] = "?? fps";
-    static int   numchars = 7;
+//     // Variáveis estáticas (static) mantém seus valores entre chamadas
+//     // subsequentes da função!
+//     static float old_seconds = (float)glfwGetTime();
+//     static int   ellapsed_frames = 0;
+//     static char  buffer[20] = "?? fps";
+//     static int   numchars = 7;
 
-    ellapsed_frames += 1;
+//     ellapsed_frames += 1;
 
-    // Recuperamos o número de segundos que passou desde a execução do programa
-    float seconds = (float)glfwGetTime();
+//     // Recuperamos o número de segundos que passou desde a execução do programa
+//     float seconds = (float)glfwGetTime();
 
-    // Número de segundos desde o último cálculo do fps
-    float ellapsed_seconds = seconds - old_seconds;
+//     // Número de segundos desde o último cálculo do fps
+//     float ellapsed_seconds = seconds - old_seconds;
 
-    if ( ellapsed_seconds > 1.0f )
-    {
-        numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
+//     if ( ellapsed_seconds > 1.0f )
+//     {
+//         numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
 
-        old_seconds = seconds;
-        ellapsed_frames = 0;
-    }
+//         old_seconds = seconds;
+//         ellapsed_frames = 0;
+//     }
 
-    float lineheight = TextRendering_LineHeight(window);
-    float charwidth = TextRendering_CharWidth(window);
+//     float lineheight = TextRendering_LineHeight(window);
+//     float charwidth = TextRendering_CharWidth(window);
 
-    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
-}
+//     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
+// }
 
 // Função para debugging: imprime no terminal todas informações de um modelo
 // geométrico carregado de um arquivo ".obj".
 // Veja: https://github.com/syoyo/tinyobjloader/blob/22883def8db9ef1f3ffb9b404318e7dd25fdbb51/loader_example.cc#L98
-void PrintObjModelInfo(ObjModel* model)
+// void PrintObjModelInfo(ObjModel* model)
+// {
+//   const tinyobj::attrib_t                & attrib    = model->attrib;
+//   const std::vector<tinyobj::shape_t>    & shapes    = model->shapes;
+//   const std::vector<tinyobj::material_t> & materials = model->materials;
+
+//   printf("# of vertices  : %d\n", (int)(attrib.vertices.size() / 3));
+//   printf("# of normals   : %d\n", (int)(attrib.normals.size() / 3));
+//   printf("# of texcoords : %d\n", (int)(attrib.texcoords.size() / 2));
+//   printf("# of shapes    : %d\n", (int)shapes.size());
+//   printf("# of materials : %d\n", (int)materials.size());
+
+//   for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
+//     printf("  v[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
+//            static_cast<const double>(attrib.vertices[3 * v + 0]),
+//            static_cast<const double>(attrib.vertices[3 * v + 1]),
+//            static_cast<const double>(attrib.vertices[3 * v + 2]));
+//   }
+
+//   for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
+//     printf("  n[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
+//            static_cast<const double>(attrib.normals[3 * v + 0]),
+//            static_cast<const double>(attrib.normals[3 * v + 1]),
+//            static_cast<const double>(attrib.normals[3 * v + 2]));
+//   }
+
+//   for (size_t v = 0; v < attrib.texcoords.size() / 2; v++) {
+//     printf("  uv[%ld] = (%f, %f)\n", static_cast<long>(v),
+//            static_cast<const double>(attrib.texcoords[2 * v + 0]),
+//            static_cast<const double>(attrib.texcoords[2 * v + 1]));
+//   }
+
+//   // For each shape
+//   for (size_t i = 0; i < shapes.size(); i++) {
+//     printf("shape[%ld].name = %s\n", static_cast<long>(i),
+//            shapes[i].name.c_str());
+//     printf("Size of shape[%ld].indices: %lu\n", static_cast<long>(i),
+//            static_cast<unsigned long>(shapes[i].mesh.indices.size()));
+
+//     size_t index_offset = 0;
+
+//     assert(shapes[i].mesh.num_face_vertices.size() ==
+//            shapes[i].mesh.material_ids.size());
+
+//     printf("shape[%ld].num_faces: %lu\n", static_cast<long>(i),
+//            static_cast<unsigned long>(shapes[i].mesh.num_face_vertices.size()));
+
+//     // For each face
+//     for (size_t f = 0; f < shapes[i].mesh.num_face_vertices.size(); f++) {
+//       size_t fnum = shapes[i].mesh.num_face_vertices[f];
+
+//       printf("  face[%ld].fnum = %ld\n", static_cast<long>(f),
+//              static_cast<unsigned long>(fnum));
+
+//       // For each vertex in the face
+//       for (size_t v = 0; v < fnum; v++) {
+//         tinyobj::index_t idx = shapes[i].mesh.indices[index_offset + v];
+//         printf("    face[%ld].v[%ld].idx = %d/%d/%d\n", static_cast<long>(f),
+//                static_cast<long>(v), idx.vertex_index, idx.normal_index,
+//                idx.texcoord_index);
+//       }
+
+//       printf("  face[%ld].material_id = %d\n", static_cast<long>(f),
+//              shapes[i].mesh.material_ids[f]);
+
+//       index_offset += fnum;
+//     }
+
+//     printf("shape[%ld].num_tags: %lu\n", static_cast<long>(i),
+//            static_cast<unsigned long>(shapes[i].mesh.tags.size()));
+//     for (size_t t = 0; t < shapes[i].mesh.tags.size(); t++) {
+//       printf("  tag[%ld] = %s ", static_cast<long>(t),
+//              shapes[i].mesh.tags[t].name.c_str());
+//       printf(" ints: [");
+//       for (size_t j = 0; j < shapes[i].mesh.tags[t].intValues.size(); ++j) {
+//         printf("%ld", static_cast<long>(shapes[i].mesh.tags[t].intValues[j]));
+//         if (j < (shapes[i].mesh.tags[t].intValues.size() - 1)) {
+//           printf(", ");
+//         }
+//       }
+//       printf("]");
+
+//       printf(" floats: [");
+//       for (size_t j = 0; j < shapes[i].mesh.tags[t].floatValues.size(); ++j) {
+//         printf("%f", static_cast<const double>(
+//                          shapes[i].mesh.tags[t].floatValues[j]));
+//         if (j < (shapes[i].mesh.tags[t].floatValues.size() - 1)) {
+//           printf(", ");
+//         }
+//       }
+//       printf("]");
+
+//       printf(" strings: [");
+//       for (size_t j = 0; j < shapes[i].mesh.tags[t].stringValues.size(); ++j) {
+//         printf("%s", shapes[i].mesh.tags[t].stringValues[j].c_str());
+//         if (j < (shapes[i].mesh.tags[t].stringValues.size() - 1)) {
+//           printf(", ");
+//         }
+//       }
+//       printf("]");
+//       printf("\n");
+//     }
+//   }
+
+//   for (size_t i = 0; i < materials.size(); i++) {
+//     printf("material[%ld].name = %s\n", static_cast<long>(i),
+//            materials[i].name.c_str());
+//     printf("  material.Ka = (%f, %f ,%f)\n",
+//            static_cast<const double>(materials[i].ambient[0]),
+//            static_cast<const double>(materials[i].ambient[1]),
+//            static_cast<const double>(materials[i].ambient[2]));
+//     printf("  material.Kd = (%f, %f ,%f)\n",
+//            static_cast<const double>(materials[i].diffuse[0]),
+//            static_cast<const double>(materials[i].diffuse[1]),
+//            static_cast<const double>(materials[i].diffuse[2]));
+//     printf("  material.Ks = (%f, %f ,%f)\n",
+//            static_cast<const double>(materials[i].specular[0]),
+//            static_cast<const double>(materials[i].specular[1]),
+//            static_cast<const double>(materials[i].specular[2]));
+//     printf("  material.Tr = (%f, %f ,%f)\n",
+//            static_cast<const double>(materials[i].transmittance[0]),
+//            static_cast<const double>(materials[i].transmittance[1]),
+//            static_cast<const double>(materials[i].transmittance[2]));
+//     printf("  material.Ke = (%f, %f ,%f)\n",
+//            static_cast<const double>(materials[i].emission[0]),
+//            static_cast<const double>(materials[i].emission[1]),
+//            static_cast<const double>(materials[i].emission[2]));
+//     printf("  material.Ns = %f\n",
+//            static_cast<const double>(materials[i].shininess));
+//     printf("  material.Ni = %f\n", static_cast<const double>(materials[i].ior));
+//     printf("  material.dissolve = %f\n",
+//            static_cast<const double>(materials[i].dissolve));
+//     printf("  material.illum = %d\n", materials[i].illum);
+//     printf("  material.map_Ka = %s\n", materials[i].ambient_texname.c_str());
+//     printf("  material.map_Kd = %s\n", materials[i].diffuse_texname.c_str());
+//     printf("  material.map_Ks = %s\n", materials[i].specular_texname.c_str());
+//     printf("  material.map_Ns = %s\n",
+//            materials[i].specular_highlight_texname.c_str());
+//     printf("  material.map_bump = %s\n", materials[i].bump_texname.c_str());
+//     printf("  material.map_d = %s\n", materials[i].alpha_texname.c_str());
+//     printf("  material.disp = %s\n", materials[i].displacement_texname.c_str());
+//     printf("  <<PBR>>\n");
+//     printf("  material.Pr     = %f\n", materials[i].roughness);
+//     printf("  material.Pm     = %f\n", materials[i].metallic);
+//     printf("  material.Ps     = %f\n", materials[i].sheen);
+//     printf("  material.Pc     = %f\n", materials[i].clearcoat_thickness);
+//     printf("  material.Pcr    = %f\n", materials[i].clearcoat_thickness);
+//     printf("  material.aniso  = %f\n", materials[i].anisotropy);
+//     printf("  material.anisor = %f\n", materials[i].anisotropy_rotation);
+//     printf("  material.map_Ke = %s\n", materials[i].emissive_texname.c_str());
+//     printf("  material.map_Pr = %s\n", materials[i].roughness_texname.c_str());
+//     printf("  material.map_Pm = %s\n", materials[i].metallic_texname.c_str());
+//     printf("  material.map_Ps = %s\n", materials[i].sheen_texname.c_str());
+//     printf("  material.norm   = %s\n", materials[i].normal_texname.c_str());
+//     std::map<std::string, std::string>::const_iterator it(
+//         materials[i].unknown_parameter.begin());
+//     std::map<std::string, std::string>::const_iterator itEnd(
+//         materials[i].unknown_parameter.end());
+
+//     for (; it != itEnd; it++) {
+//       printf("  material.%s = %s\n", it->first.c_str(), it->second.c_str());
+//     }
+//     printf("\n");
+//   }
+// }
+
+// Função que carrega uma imagem para ser utilizada como textura
+void LoadTextureImage(const char* filename)
 {
-  const tinyobj::attrib_t                & attrib    = model->attrib;
-  const std::vector<tinyobj::shape_t>    & shapes    = model->shapes;
-  const std::vector<tinyobj::material_t> & materials = model->materials;
+    printf("Carregando imagem \"%s\"... ", filename);
 
-  printf("# of vertices  : %d\n", (int)(attrib.vertices.size() / 3));
-  printf("# of normals   : %d\n", (int)(attrib.normals.size() / 3));
-  printf("# of texcoords : %d\n", (int)(attrib.texcoords.size() / 2));
-  printf("# of shapes    : %d\n", (int)shapes.size());
-  printf("# of materials : %d\n", (int)materials.size());
+    // Primeiro fazemos a leitura da imagem do disco
+    stbi_set_flip_vertically_on_load(true);
+    int width;
+    int height;
+    int channels;
+    unsigned char *data = stbi_load(filename, &width, &height, &channels, 3);
 
-  for (size_t v = 0; v < attrib.vertices.size() / 3; v++) {
-    printf("  v[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.vertices[3 * v + 0]),
-           static_cast<const double>(attrib.vertices[3 * v + 1]),
-           static_cast<const double>(attrib.vertices[3 * v + 2]));
-  }
-
-  for (size_t v = 0; v < attrib.normals.size() / 3; v++) {
-    printf("  n[%ld] = (%f, %f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.normals[3 * v + 0]),
-           static_cast<const double>(attrib.normals[3 * v + 1]),
-           static_cast<const double>(attrib.normals[3 * v + 2]));
-  }
-
-  for (size_t v = 0; v < attrib.texcoords.size() / 2; v++) {
-    printf("  uv[%ld] = (%f, %f)\n", static_cast<long>(v),
-           static_cast<const double>(attrib.texcoords[2 * v + 0]),
-           static_cast<const double>(attrib.texcoords[2 * v + 1]));
-  }
-
-  // For each shape
-  for (size_t i = 0; i < shapes.size(); i++) {
-    printf("shape[%ld].name = %s\n", static_cast<long>(i),
-           shapes[i].name.c_str());
-    printf("Size of shape[%ld].indices: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.indices.size()));
-
-    size_t index_offset = 0;
-
-    assert(shapes[i].mesh.num_face_vertices.size() ==
-           shapes[i].mesh.material_ids.size());
-
-    printf("shape[%ld].num_faces: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.num_face_vertices.size()));
-
-    // For each face
-    for (size_t f = 0; f < shapes[i].mesh.num_face_vertices.size(); f++) {
-      size_t fnum = shapes[i].mesh.num_face_vertices[f];
-
-      printf("  face[%ld].fnum = %ld\n", static_cast<long>(f),
-             static_cast<unsigned long>(fnum));
-
-      // For each vertex in the face
-      for (size_t v = 0; v < fnum; v++) {
-        tinyobj::index_t idx = shapes[i].mesh.indices[index_offset + v];
-        printf("    face[%ld].v[%ld].idx = %d/%d/%d\n", static_cast<long>(f),
-               static_cast<long>(v), idx.vertex_index, idx.normal_index,
-               idx.texcoord_index);
-      }
-
-      printf("  face[%ld].material_id = %d\n", static_cast<long>(f),
-             shapes[i].mesh.material_ids[f]);
-
-      index_offset += fnum;
+    if ( data == NULL )
+    {
+        fprintf(stderr, "ERROR: Cannot open image file \"%s\".\n", filename);
+        std::exit(EXIT_FAILURE);
     }
 
-    printf("shape[%ld].num_tags: %lu\n", static_cast<long>(i),
-           static_cast<unsigned long>(shapes[i].mesh.tags.size()));
-    for (size_t t = 0; t < shapes[i].mesh.tags.size(); t++) {
-      printf("  tag[%ld] = %s ", static_cast<long>(t),
-             shapes[i].mesh.tags[t].name.c_str());
-      printf(" ints: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].intValues.size(); ++j) {
-        printf("%ld", static_cast<long>(shapes[i].mesh.tags[t].intValues[j]));
-        if (j < (shapes[i].mesh.tags[t].intValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
+    printf("OK (%dx%d).\n", width, height);
 
-      printf(" floats: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].floatValues.size(); ++j) {
-        printf("%f", static_cast<const double>(
-                         shapes[i].mesh.tags[t].floatValues[j]));
-        if (j < (shapes[i].mesh.tags[t].floatValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
+    // Agora criamos objetos na GPU com OpenGL para armazenar a textura
+    GLuint texture_id;
+    GLuint sampler_id;
+    glGenTextures(1, &texture_id);
+    glGenSamplers(1, &sampler_id);
 
-      printf(" strings: [");
-      for (size_t j = 0; j < shapes[i].mesh.tags[t].stringValues.size(); ++j) {
-        printf("%s", shapes[i].mesh.tags[t].stringValues[j].c_str());
-        if (j < (shapes[i].mesh.tags[t].stringValues.size() - 1)) {
-          printf(", ");
-        }
-      }
-      printf("]");
-      printf("\n");
-    }
-  }
+    // Veja slides 95-96 do documento Aula_20_Mapeamento_de_Texturas.pdf
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glSamplerParameteri(sampler_id, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-  for (size_t i = 0; i < materials.size(); i++) {
-    printf("material[%ld].name = %s\n", static_cast<long>(i),
-           materials[i].name.c_str());
-    printf("  material.Ka = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].ambient[0]),
-           static_cast<const double>(materials[i].ambient[1]),
-           static_cast<const double>(materials[i].ambient[2]));
-    printf("  material.Kd = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].diffuse[0]),
-           static_cast<const double>(materials[i].diffuse[1]),
-           static_cast<const double>(materials[i].diffuse[2]));
-    printf("  material.Ks = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].specular[0]),
-           static_cast<const double>(materials[i].specular[1]),
-           static_cast<const double>(materials[i].specular[2]));
-    printf("  material.Tr = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].transmittance[0]),
-           static_cast<const double>(materials[i].transmittance[1]),
-           static_cast<const double>(materials[i].transmittance[2]));
-    printf("  material.Ke = (%f, %f ,%f)\n",
-           static_cast<const double>(materials[i].emission[0]),
-           static_cast<const double>(materials[i].emission[1]),
-           static_cast<const double>(materials[i].emission[2]));
-    printf("  material.Ns = %f\n",
-           static_cast<const double>(materials[i].shininess));
-    printf("  material.Ni = %f\n", static_cast<const double>(materials[i].ior));
-    printf("  material.dissolve = %f\n",
-           static_cast<const double>(materials[i].dissolve));
-    printf("  material.illum = %d\n", materials[i].illum);
-    printf("  material.map_Ka = %s\n", materials[i].ambient_texname.c_str());
-    printf("  material.map_Kd = %s\n", materials[i].diffuse_texname.c_str());
-    printf("  material.map_Ks = %s\n", materials[i].specular_texname.c_str());
-    printf("  material.map_Ns = %s\n",
-           materials[i].specular_highlight_texname.c_str());
-    printf("  material.map_bump = %s\n", materials[i].bump_texname.c_str());
-    printf("  material.map_d = %s\n", materials[i].alpha_texname.c_str());
-    printf("  material.disp = %s\n", materials[i].displacement_texname.c_str());
-    printf("  <<PBR>>\n");
-    printf("  material.Pr     = %f\n", materials[i].roughness);
-    printf("  material.Pm     = %f\n", materials[i].metallic);
-    printf("  material.Ps     = %f\n", materials[i].sheen);
-    printf("  material.Pc     = %f\n", materials[i].clearcoat_thickness);
-    printf("  material.Pcr    = %f\n", materials[i].clearcoat_thickness);
-    printf("  material.aniso  = %f\n", materials[i].anisotropy);
-    printf("  material.anisor = %f\n", materials[i].anisotropy_rotation);
-    printf("  material.map_Ke = %s\n", materials[i].emissive_texname.c_str());
-    printf("  material.map_Pr = %s\n", materials[i].roughness_texname.c_str());
-    printf("  material.map_Pm = %s\n", materials[i].metallic_texname.c_str());
-    printf("  material.map_Ps = %s\n", materials[i].sheen_texname.c_str());
-    printf("  material.norm   = %s\n", materials[i].normal_texname.c_str());
-    std::map<std::string, std::string>::const_iterator it(
-        materials[i].unknown_parameter.begin());
-    std::map<std::string, std::string>::const_iterator itEnd(
-        materials[i].unknown_parameter.end());
+    // Parâmetros de amostragem da textura.
+    glSamplerParameteri(sampler_id, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glSamplerParameteri(sampler_id, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    for (; it != itEnd; it++) {
-      printf("  material.%s = %s\n", it->first.c_str(), it->second.c_str());
-    }
-    printf("\n");
-  }
+    // Agora enviamos a imagem lida do disco para a GPU
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+
+    GLuint textureunit = g_NumLoadedTextures;
+    glActiveTexture(GL_TEXTURE0 + textureunit);
+    glBindTexture(GL_TEXTURE_2D, texture_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_SRGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+    glBindSampler(textureunit, sampler_id);
+
+    stbi_image_free(data);
+
+    g_NumLoadedTextures += 1;
 }
 
 // set makeprg=cd\ ..\ &&\ make\ run\ >/dev/null

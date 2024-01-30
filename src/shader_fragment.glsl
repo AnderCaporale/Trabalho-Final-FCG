@@ -6,6 +6,9 @@
 // "shader_vertex.glsl" e "main.cpp".
 in vec4 position_world;
 in vec4 normal;
+in vec4 position_model;
+
+in vec2 texcoords;
 
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
@@ -14,15 +17,16 @@ uniform mat4 projection;
 
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPHERE 0
-#define BUNNY  1
-#define PLANE  2
-#define PATH   3
-#define COW    4
-#define FLASHLIGHT    5
-#define SUN    6
-#define MOON    7
-#define CUBE    8
+#define SPHERE      0
+#define BUNNY       1
+#define PLANE       2
+#define PATH        3
+#define COW         4
+#define FLASHLIGHT  5
+#define SUN         6
+#define MOON        7
+#define CUBEXY      8
+#define CUBEYZ      9
 
 uniform int object_id;
 
@@ -38,11 +42,18 @@ uniform float flashligth_dir_x;
 uniform float flashligth_dir_y;
 uniform float flashligth_dir_z;
 
+uniform vec4 bbox_min;
+uniform vec4 bbox_max;
+
+uniform sampler2D wallTexture;
+uniform sampler2D grassTexture;
+uniform sampler2D moonTexture;
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
 
-# define M_PI          3.141592653589793238462643383279502884
+#define M_PI   3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
 void main()
 {
     // Obtemos a posição da câmera utilizando a inversa da matriz que define o
@@ -60,7 +71,7 @@ void main()
     //Spotlight
     vec4 pontoL = vec4(camera_position.x, camera_position.y, camera_position.z, 1.0); //representa o ponto onde está localizada a fonte de luz
     vec4 direcao = normalize(vec4(flashligth_dir_x, flashligth_dir_y, flashligth_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
-    float abertura = cos(M_PI/15); //12 graus
+    float abertura = cos(M_PI/12); //12 graus
 
     // Normal do fragmento atual, interpolada pelo rasterizador a partir das
     // normais de cada vértice.
@@ -72,7 +83,7 @@ void main()
     // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0)); //Luz fixa
     //vec4 l = normalize(camera_position - p); //Camera é a luz
-    vec4 lFlash = normalize(pontoL - p)/(max(length(pontoL-p),1));    //Luz Spotlight
+    vec4 lFlash = normalize(pontoL - p)/(max(pow(length(pontoL-p), 2),1));    //Luz Spotlight
     vec4 lTimeSun = normalize(vec4(-cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
     vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
 
@@ -90,7 +101,9 @@ void main()
     vec3 Ks; // Refletância especular
     vec3 Ka; // Refletância ambiente
     float q; // Expoente especular para o modelo de iluminação de Phong
-
+    float U = 0.0;
+    float V = 0.0;
+    vec3 debugColor;
 
     if ( object_id == SPHERE )
     {
@@ -112,11 +125,12 @@ void main()
     }
     else if ( object_id == PLANE )
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do plano
-        Kd = vec3(0.5, 0.5, 0.5);
-        Ks = vec3(0.6, 0.6, 0.6);
-        Ka = Kd/2;
+        U = (position_world.x);
+        V = (position_world.z);
+
+        Kd = texture(grassTexture, vec2(U,V)).rgb;
+        Ks = vec3(0.0, 0.0, 0.0);
+        Ka = Kd/5;
         q = 20.0;
     } else if ( object_id == PATH )
     {
@@ -157,16 +171,52 @@ void main()
     }
     else if ( object_id == MOON)
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.0 , 0.0, 0.0);
-        Ks = vec3(0.0 , 0.0, 0.0);
-        Ka = vec3(0.9, 0.9, 1.0);
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float theta = atan(position_model.x, position_model.z);
+        float phi = asin(position_model.y);
+
+        U = (theta+M_PI)/(2*M_PI);
+        V = (phi+M_PI_2)/M_PI;
+        Kd = vec3(0.0, 0.0, 0.0);
+        Ka = texture(moonTexture, vec2(U,V)).rgb;
+        Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
     }
-    else if (object_id == CUBE){
-        Kd = vec3(0.6, 0.6, 0.2);
-        Ks = vec3(0.6, 0.6, 0.2);
+    else if (object_id == CUBEXY){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+    }
+    else if(object_id == CUBEYZ)
+    {
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
     }
@@ -181,10 +231,10 @@ void main()
     // Espectro da fonte de iluminação
     vec3 I_flash = vec3(1.0, 1.0, 1.0);
     vec3 I_sun = vec3(1.0, 0.95, 0.8); 
-    vec3 I_moon = vec3(0.5, 0.5, 0.55);
+    vec3 I_moon = vec3(0.2, 0.2, 0.5);
 
     // Espectro da luz ambiente
-    vec3 Ia = vec3(0.2, 0.2, 0.2);
+    vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
@@ -228,7 +278,7 @@ void main()
         color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + phong_specular_term_time_sun;
     }
     if(sin_pos_light < 0.0){
-        color_time_moon.rgb = sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
+        color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
     }
 
     color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
@@ -249,4 +299,3 @@ void main()
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 
 }
-
