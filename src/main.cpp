@@ -472,22 +472,15 @@ int main(int argc, char* argv[])
                                                         + camera_up_vector * g_PlayerSpeed.y;
         glm::vec4 move_direction = player_new_position - player_position;
 
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         checkCollisionWithWalls(player_position, move_direction, walls);
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-        // Computamos a matriz "View" utilizando os parâmetros da câmera para
-        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
         player_position += move_direction;
         camera_position_c = player_position;
         camera_position_c.y += 0.5f;
+
+        // Computamos a matriz "View" utilizando os parâmetros da câmera para
+        glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
+
 
         glUniform1f(flashligth_pos_x, camera_position_c[0]);
         glUniform1f(flashligth_pos_y, camera_position_c[1]);
