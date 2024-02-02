@@ -398,6 +398,10 @@ int main(int argc, char* argv[])
     ComputeNormals(&gunModel);
     BuildTrianglesAndAddToVirtualScene(&gunModel);
 
+    ObjModel cubeModel("../../data/cube.obj");
+    ComputeNormals(&cubeModel);
+    BuildTrianglesAndAddToVirtualScene(&cubeModel);
+
     // Construímos a representação de um triângulo
     GLuint vertex_array_object_id = BuildTriangles();
 
@@ -461,13 +465,17 @@ int main(int argc, char* argv[])
         float x = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
+        // Atualiza delta de tempo
+        float current_time = (float)glfwGetTime();
+        delta_t = current_time - prev_time;
+        prev_time = current_time;
+
         if (tecla_L_pressionada){   //Camera Look-At
             camera_position_c  = glm::vec4(x, y, z-23, 1.0f); // Ponto "c", centro da câmera
             camera_lookat_l    = glm::vec4(0.0f,0.0f,-24.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
 
         } else {    //Camera Normal
-
             // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
             camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
 
@@ -477,11 +485,6 @@ int main(int argc, char* argv[])
                 camera_position_c.y=0;
             }
             glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
-
-            // Atualiza delta de tempo
-            float current_time = (float)glfwGetTime();
-            delta_t = current_time - prev_time;
-            prev_time = current_time;
 
             if (tecla_W_pressionada){
                 // Movimenta câmera para frente
@@ -600,45 +603,50 @@ int main(int argc, char* argv[])
                 model = Matrix_Identity();
 
                 if ( paredes[i][j] == 1 ){
-                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
-                            Matrix_Scale(1.0f, 1.0f, 0.01f);
+                    model = Matrix_Translate(j-13.495, -0.5f, i - 19.5f )*
+                            Matrix_Scale(1.0f, 1.0f, 0.010f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                     glUniform1i(g_object_id_uniform, BUNNY);
-                    DrawCube(render_as_black_uniform);
+                    DrawVirtualObject("the_cube");
+                    //DrawCube(render_as_black_uniform);
 
                 } else if ( paredes[i][j] == 2 ){
 
-                    model = Matrix_Translate(j-13 + 0.495f, 0, i-19) *
+                    model = Matrix_Translate(j-12.495, -0.5f, i-19.5) *
                             Matrix_Scale(0.01f, 1.0f, 1.00f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                     glUniform1i(g_object_id_uniform, SPHERE);
-                    DrawCube(render_as_black_uniform);
+                    DrawVirtualObject("the_cube");
+                    //DrawCube(render_as_black_uniform);
 
                 } else if ( paredes[i][j] == 3 ){
                     model = Matrix_Identity();
-                    model = Matrix_Translate(j-13, 0, i - 19 - 0.495f )*
+                    model = Matrix_Translate(j-13.495, -0.5f, i-19.5f)*
                             Matrix_Scale(1.0f, 1.0f, 0.01f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                     glUniform1i(g_object_id_uniform, BUNNY);
-                    DrawCube(render_as_black_uniform);
+                    DrawVirtualObject("the_cube");
+                    //DrawCube(render_as_black_uniform);
 
-                    model = Matrix_Translate(j-13 + 0.495f, 0, i-19) *
+                    model = Matrix_Translate(j-12.495, -0.5f, i-19.5) *
                             Matrix_Scale(0.01f, 1.0f, 1.00f);
                     glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                     glUniform1i(g_object_id_uniform, SPHERE);
-                    DrawCube(render_as_black_uniform);
+                    DrawVirtualObject("the_cube");
+                    //DrawCube(render_as_black_uniform);
 
                 }
             }
         }
-
+        glBindVertexArray(vertex_array_object_id);
         //Desenha o chão
         model = Matrix_Identity();
-        model = Matrix_Translate(0, -0.505f, -12 )*
+        model = Matrix_Translate(-13, -0.505f, -25.5 )*
                 Matrix_Scale(26.0f, 0.01f, 27.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
-        DrawCube(render_as_black_uniform);
+        DrawVirtualObject("the_cube");
+        //DrawCube(render_as_black_uniform);
 
         //Desenha o caminho correto
         if(tecla_R_pressionada){

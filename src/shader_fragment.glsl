@@ -72,8 +72,8 @@ void main()
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0)); //Luz fixa
     //vec4 l = normalize(camera_position - p); //Camera é a luz
     vec4 lFlash = normalize(pontoL - p);    //Luz Spotlight
-    vec4 lTimeSun = normalize(vec4(cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
-    vec4 lTimeMoon = normalize(vec4(-cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
+    vec4 lTimeSun = normalize(vec4(-cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
+    vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
@@ -220,7 +220,8 @@ void main()
 
         } else {
             if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
-                color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
+                color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash+
+                            sin_pos_light*lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun;
             } else{
                 if (sin_pos_light > 0 ) {
                     color.rgb = sin_pos_light*lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
