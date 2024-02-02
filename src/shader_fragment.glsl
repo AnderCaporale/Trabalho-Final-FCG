@@ -6,6 +6,9 @@
 // "shader_vertex.glsl" e "main.cpp".
 in vec4 position_world;
 in vec4 normal;
+in vec4 position_model;
+
+in vec2 texcoords;
 
 // Matrizes computadas no código C++ e enviadas para a GPU
 uniform mat4 model;
@@ -14,14 +17,18 @@ uniform mat4 projection;
 
 
 // Identificador que define qual objeto está sendo desenhado no momento
-#define SPHERE 0
-#define BUNNY  1
-#define PLANE  2
-#define PATH   3
-#define COW    4
-#define FLASHLIGHT    5
-#define SUN    6
-#define MOON    7
+#define SPHERE      0
+#define BUNNY       1
+#define PLANE       2
+#define PATH        3
+#define COW         4
+#define FLASHLIGHT  5
+#define SUN         6
+#define MOON        7
+#define CUBEXY      8
+#define CUBEYZ      9
+#define GUN         10
+#define MAP         11
 
 uniform int object_id;
 
@@ -37,11 +44,26 @@ uniform float flashligth_dir_x;
 uniform float flashligth_dir_y;
 uniform float flashligth_dir_z;
 
+uniform vec4 bbox_min;
+uniform vec4 bbox_max;
+
+uniform sampler2D wallTexture;
+uniform sampler2D grassTexture;
+uniform sampler2D moonTexture;
+uniform sampler2D sunTexture;
+uniform sampler2D sunCloudsTexture;
+uniform sampler2D goldTexture;
+uniform sampler2D flashlightTexture;
+uniform sampler2D gun1Texture;
+uniform sampler2D gun2Texture;
+uniform sampler2D mapTexture;
+
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
 
-# define M_PI          3.141592653589793238462643383279502884
+#define M_PI   3.14159265358979323846
+#define M_PI_2 1.57079632679489661923
 void main()
 {
     // Obtemos a posição da câmera utilizando a inversa da matriz que define o
@@ -57,9 +79,9 @@ void main()
     vec4 p = position_world;
 
     //Spotlight
-    vec4 pontoL = vec4(camera_position[0], camera_position[1], camera_position[2], 1.0); //representa o ponto onde está localizada a fonte de luz
+    vec4 pontoL = vec4(camera_position.x, camera_position.y, camera_position.z, 1.0); //representa o ponto onde está localizada a fonte de luz
     vec4 direcao = normalize(vec4(flashligth_dir_x, flashligth_dir_y, flashligth_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
-    float abertura = cos(M_PI/18); //10 graus
+    float abertura = cos(M_PI/12); //12 graus
 
     // Normal do fragmento atual, interpolada pelo rasterizador a partir das
     // normais de cada vértice.
@@ -71,9 +93,9 @@ void main()
     // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0)); //Luz fixa
     //vec4 l = normalize(camera_position - p); //Camera é a luz
-    vec4 lFlash = normalize(pontoL - p);    //Luz Spotlight
-    vec4 lTimeSun = normalize(vec4(cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
-    vec4 lTimeMoon = normalize(vec4(-cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
+    vec4 lFlash = normalize(pontoL - p)/(max(pow(length(pontoL-p), 2),1));    //Luz Spotlight
+    vec4 lTimeSun = normalize(vec4(-cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
+    vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
@@ -89,7 +111,9 @@ void main()
     vec3 Ks; // Refletância especular
     vec3 Ka; // Refletância ambiente
     float q; // Expoente especular para o modelo de iluminação de Phong
-
+    float U = 0.0;
+    float V = 0.0;
+    vec3 debugColor;
 
     if ( object_id == SPHERE )
     {
@@ -111,11 +135,12 @@ void main()
     }
     else if ( object_id == PLANE )
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do plano
-        Kd = vec3(0.2, 0.2, 0.2);
-        Ks = vec3(0.3, 0.3, 0.3);
-        Ka = Kd/2;
+        U = (position_world.x);
+        V = (position_world.z);
+
+        Kd = texture(grassTexture, vec2(U,V)).rgb;
+        Ks = vec3(0.0, 0.0, 0.0);
+        Ka = Kd/5;
         q = 20.0;
     } else if ( object_id == PATH )
     {
@@ -127,41 +152,143 @@ void main()
         q = 1.0;
     } else if ( object_id == COW)
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.7, 0.7, 0.0);
-        Ks = vec3(1.0 , 1.0, 0.0);
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = 5*texture(goldTexture, vec2(U,V)).rgb;
+        Ks = Kd;
         Ka = Kd/2;
-        q = 32.0;
+        q = 20.0;
     }
     else if ( object_id == FLASHLIGHT )
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.2, 0.2, 0.2);
-        Ks = vec3(0.3, 0.3, 0.3);
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+
+    } else if ( object_id == GUN )
+    {
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(flashlightTexture, vec2(U,V)).rgb;
+        Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
     } else if ( object_id == SUN)
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(1.0, 1.0, 0.0);
-        Ks = vec3(1.0 , 1.0, 0.0);
-        if (cos_pos_light > -0.80710678118)
-            Ka = Kd;
-        else
-            Ka = Kd/1.5;
-        q = 32.0;
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float theta = atan(position_model.x, position_model.z);
+        float phi = asin(position_model.y);
+
+        U = (theta+M_PI)/(2*M_PI);
+        V = (phi+M_PI_2)/M_PI;
+        Kd = vec3(0.0, 0.0, 0.0);
+        Ka = (texture(sunTexture, vec2(U,V)).rgb + texture(sunCloudsTexture, vec2(U,V)).rgb)*sin_pos_light*2;;
+        Ks = vec3(0.0, 0.0, 0.0);
+        q = 1.0;
+
     }
     else if ( object_id == MOON)
     {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.0 , 0.0, 0.0);
-        Ks = vec3(0.0 , 0.0, 0.0);
-        Ka = vec3(0.9, 0.9, 1.0);
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float theta = atan(position_model.x, position_model.z);
+        float phi = asin(position_model.y);
+
+        U = (theta+M_PI)/(2*M_PI);
+        V = (phi+M_PI_2)/M_PI;
+        Kd = vec3(0.0, 0.0, 0.0);
+        Ka = texture(moonTexture, vec2(U,V)).rgb * -sin_pos_light*2;
+        Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
+    }
+    else if (object_id == CUBEXY){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+    }
+    else if(object_id == CUBEYZ)
+    {
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+    } else if(object_id == MAP)
+    {
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(mapTexture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
     }
     else // Objeto desconhecido = preto
     {
@@ -172,25 +299,31 @@ void main()
     }
 
     // Espectro da fonte de iluminação
-    vec3 I = vec3(1.0, 1.0, 1.0); // PREENCHA AQUI o espectro da fonte de luz
+    vec3 I_flash = vec3(1.0, 1.0, 1.0);
+    vec3 I_sun = vec3(1.0, 0.95, 0.8);
+    vec3 I_moon = vec3(0.2, 0.2, 0.5);
 
+    // Espectro da luz ambiente
+    vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
     // Espectro da luz ambiente
     vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
     vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
-    vec3 lambert_diffuse_term_flash = Kd*I*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_sun = Kd*I*max(0, dot(n, lTimeSun)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_moon = Kd*I*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time_sun = Kd*I_sun*max(0, dot(n, lTimeSun)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_time_moon = Kd*I_moon*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
 
+    // Termo ambiente
+    vec3 ambient_term = Ka*Ia;
     // Termo ambiente
     vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
     vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
 
     // Termo especular utilizando o modelo de iluminação de Phong
-    vec3 phong_specular_term_flash  = Ks*I*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_sun  = Ks*I*pow(max(0, dot(rTimeSun,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_moon  = Ks*I*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_flash  = Ks*I_flash*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_time_sun  = Ks*I_sun*pow(max(0, dot(rTimeSun,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 phong_specular_term_time_moon  = Ks*I_moon*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
 
     // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
     // necessário:
@@ -206,36 +339,39 @@ void main()
     // Alpha default = 1 = 100% opaco = 0% transparente
     color.a = 1;
 
-    // Cor final do fragmento calculada com uma combinação dos termos difuso,
-    // especular, e ambiente. Veja slide 129 do documento Aula_17_e_18_Modelos_de_Iluminacao.pdf.
+    vec4 color_flash = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 color_time_sun = vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 color_time_moon = vec4(0.0, 0.0, 0.0, 1.0);
 
-
-    if (flashlight_on == 1){
-
-        if(dot(normalize(p - pontoL), normalize(direcao)) >= abertura){
-            color.rgb = lambert_diffuse_term_flash + ambient_term_flash + phong_specular_term_flash;
-        } else{
-            if (sin_pos_light > 0 ) {
-                color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
-            } else{
-                color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.5*ambient_term_time + phong_specular_term_time_moon;
-            }
-        }
-    } else {
-        if (sin_pos_light > 0 ) {
-            color.rgb = lambert_diffuse_term_time_sun + ambient_term_time + phong_specular_term_time_sun ;
-        } else{
-            color.rgb = 0.001*lambert_diffuse_term_time_moon + 0.1*ambient_term_time + phong_specular_term_time_moon;
-
+    if (flashlight_on == 1 && object_id != FLASHLIGHT){
+        float cos_angle = dot(normalize(p - pontoL), normalize(direcao));
+        if(cos_angle >= abertura){
+            color_flash.rgb = (lambert_diffuse_term_flash + phong_specular_term_flash)*(pow(cos_angle, 5));
         }
     }
 
-    // Cor final com correção gamma, considerando monitor sRGB.
-    // Veja https://en.wikipedia.org/w/index.php?title=Gamma_correction&oldid=751281772#Windows.2C_Mac.2C_sRGB_and_TV.2Fvideo_standard_gammas
+    if(sin_pos_light > 0.0){
+        color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + phong_specular_term_time_sun;
+    }
+    if(sin_pos_light < 0.0){
+        color_time_moon.rgb = -sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
+    }
+
+    color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term_time;
+
+    if(object_id == MOON || object_id == PATH || object_id == MAP){
+        color.rgb = Ka*vec3(1.0, 1.0, 1.0);
+    }
+    if(object_id == SUN){
+        if(cos_pos_light < 0){
+            color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.3), max(sin_pos_light,0.3));
+        }
+        else{
+            color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.7), max(sin_pos_light,0.7));
+        }
+
+    }
+
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
 
-    if(object_id == SUN || object_id == MOON || object_id == PATH ){
-        color.rgb = ambient_term_flash;
-    }
 }
-
