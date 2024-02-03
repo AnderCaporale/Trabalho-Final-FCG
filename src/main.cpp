@@ -70,6 +70,7 @@
 #define CUBEYZ      9
 #define GUN         10
 #define MAP         11
+#define SKY         12
 
 #define XYWALL      1
 #define YZWALL      2
@@ -344,7 +345,8 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/textures/gun1Texture.jpg");
     LoadTextureImage("../../data/textures/gun2Texture.jpg");
     LoadTextureImage("../../data/textures/mapTexture.png");
-
+    LoadTextureImage("../../data/textures/sky/skyDayTexture.jpg");
+    LoadTextureImage("../../data/textures/sky/skyNightTexture.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/objs/sphere.obj");
@@ -427,7 +429,7 @@ int main(int argc, char* argv[])
     }
     float cor_r=1,cor_g=1,cor_b=1;
     int tempo = 0;
-    float segundosCicloDia = 30;
+    float segundosCicloDia = 15;
 
     Wall wall;
     for(int i=0; i<22; i++){
@@ -573,7 +575,7 @@ int main(int argc, char* argv[])
         } else if ( tempo%(int(segundosCicloDia)*2) > segundosCicloDia*1.75){
             cor_r = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
             cor_g = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
-            cor_b = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
+            cor_b = 1/segundosCicloDia * (tempo%(int(segundosCicloDia))) + 0.5;
         }
         glClearColor(cor_r, cor_g, cor_b, 1.0f);
 
@@ -607,6 +609,18 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
 
+        //Tentativa SkyBox
+        glCullFace(GL_FRONT);
+        model = Matrix_Identity();
+        model = Matrix_Translate(camera_position_c.x, camera_position_c.y, camera_position_c.z);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, SKY);
+        glDisable(GL_DEPTH_TEST);
+        DrawVirtualObject("the_sphere");
+        glEnable(GL_DEPTH_TEST);
+        glCullFace(GL_BACK);
+
+
         //Cálculo da curva de Bezier
         t_bezier_delta = t_bezier; // Salva o valor anterior para saber se resetou no %
         t_bezier = fmod(seconds, segundosCicloDia) / (segundosCicloDia); //Reseta o T a cada 30 segundos, e normaliza entre 0 e 1.
@@ -626,6 +640,8 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
+
+
 
 
         //Desenhamos o modelo da lua
@@ -926,7 +942,8 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "gun1Texture"), 7);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "gun2Texture"), 8);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "mapTexture"), 9);
-
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyDayTexture"), 10);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyNightTexture"), 11);
 
     glUseProgram(0);
 }
