@@ -215,8 +215,9 @@ void main()
 
         U = (theta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
+
         Kd = vec3(0.0, 0.0, 0.0);
-        Ka = (texture(sunTexture, vec2(U,V)).rgb + texture(sunCloudsTexture, vec2(U,V)).rgb)*sin_pos_light*2;;
+        Ka = (texture(sunTexture, vec2(U,V)).rgb + texture(sunCloudsTexture, vec2(U,V)).rgb*0.5)*max(0.01,sin_pos_light)*1.5;
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
 
@@ -231,7 +232,7 @@ void main()
         U = (theta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
         Kd = vec3(0.0, 0.0, 0.0);
-        Ka = texture(moonTexture, vec2(U,V)).rgb * -sin_pos_light*2;
+        Ka = texture(moonTexture, vec2(U,V)).rgb * max(0.01, -sin_pos_light)*3;
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
     }
@@ -285,7 +286,7 @@ void main()
         U = (position_model.z - minz)/(maxz - minz);
         V = (position_model.y - miny)/(maxy - miny);
 
-        Kd = texture(mapTexture, vec2(U,V)).rgb;
+        Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
         Ks = Kd;
         Ka = Kd/2;
         q = 20.0;

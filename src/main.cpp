@@ -122,6 +122,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
+
+glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float time);
+
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
 
 // A cena virtual é uma lista de objetos nomeados, guardados em um dicionário
@@ -463,6 +466,22 @@ int main(int argc, char* argv[])
         //std::cout << wall.position.x << " " << wall.position.y << " " << wall.position.z << std::endl;
     }
 
+    std::vector<glm::vec3> bezierControlPoints, bezierControlPoints2;
+    bezierControlPoints.push_back(glm::vec3(-19.0f, 0.0f, 0.0f));
+    bezierControlPoints.push_back(glm::vec3(-19.0f , 25.0f, 0.0f));
+    bezierControlPoints.push_back(glm::vec3(19.0f , 25.0f, 0.0f));
+    bezierControlPoints.push_back(glm::vec3(19.0f  , 0.0f, 0.0f));
+
+    bezierControlPoints2.push_back(glm::vec3(19.0f, 0.0f, 0.0f));
+    bezierControlPoints2.push_back(glm::vec3(19.0f , -25.0f, 0.0f));
+    bezierControlPoints2.push_back(glm::vec3(-19.0f , -25.0f, 0.0f));
+    bezierControlPoints2.push_back(glm::vec3(-19.0f  , 0.0f, 0.0f));
+
+    float t_bezier;
+    float t_bezier_delta;
+    glm::vec3 bezierPoint;
+    bool secondBezier = false;
+
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -478,9 +497,10 @@ int main(int argc, char* argv[])
         float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
         // Atualiza delta de tempo
-        float current_time = (float)glfwGetTime();
-        delta_t = current_time - prev_time;
-        prev_time = current_time;
+        //float current_time = (float)glfwGetTime();
+        delta_t = seconds - prev_time;
+
+        prev_time = seconds;
 
         if (tecla_L_pressionada){   //Camera Look-At
             camera_position_c  = glm::vec4(x, y, z-23, 1.0f); // Ponto "c", centro da câmera
@@ -586,9 +606,19 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_view_uniform       , 1 , GL_FALSE , glm::value_ptr(view));
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
+
+        //Cálculo da curva de Bezier
+        t_bezier_delta = t_bezier; // Salva o valor anterior para saber se resetou no %
+        t_bezier = fmod(seconds, segundosCicloDia) / (segundosCicloDia); //Reseta o T a cada 30 segundos, e normaliza entre 0 e 1.
+        if(t_bezier_delta > t_bezier) { //Se resetou(chegou ao fim da curva), muda para a curva de bezier2
+            secondBezier = !secondBezier;
+        }
+        //Calcula os pontos de bezier com os pontos1 ou pontos2
+        bezierPoint = (secondBezier)? bezierCubicCurve(bezierControlPoints2, t_bezier) : bezierCubicCurve(bezierControlPoints, t_bezier);
+
         //Desenhamos o modelo do sol
         model = Matrix_Identity();
-        model = Matrix_Translate(-cos(M_PI/segundosCicloDia*seconds)*19, sin(M_PI/segundosCicloDia*seconds)*19, -13.0f)
+        model = Matrix_Translate(bezierPoint.x, bezierPoint.y, -13.0f)
                 * Matrix_Rotate_Y(g_AngleY/10)
                 * Matrix_Rotate_Z(g_AngleY/5)
                 * Matrix_Rotate_X(g_AngleY/10)
@@ -597,11 +627,10 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
 
-        //std::cout << sin(M_PI/15*seconds) << std::endl;
 
         //Desenhamos o modelo da lua
         model = Matrix_Identity();
-        model = Matrix_Translate(cos(M_PI/segundosCicloDia*seconds)*19, -sin(M_PI/segundosCicloDia*seconds)*19, -13.0f)
+        model = Matrix_Translate(-bezierPoint.x, -bezierPoint.y, -13.0f)
                 * Matrix_Rotate_Y(g_AngleY/10)
                 * Matrix_Rotate_Z(g_AngleY/5)
                 * Matrix_Rotate_X(g_AngleY/10)
@@ -716,6 +745,25 @@ int main(int argc, char* argv[])
     // Fim do programa
     return 0;
 }
+
+
+glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float t)
+{
+    glm::vec3 ct = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+
+    float b03 = pow( (1-t), 3);
+    float b13 = 3*t * (1-t)*(1-t);
+    float b23 = 3*t*t * (1-t);
+    float b33 = t*t*t;
+
+    ct = b03*points[0] + b13*points[1] + b23*points[2] + b33*points[3];
+
+    return ct;
+}
+
+
+
+
 
 // Função que desenha um objeto armazenado em g_VirtualScene. Veja definição
 // dos objetos na função BuildTrianglesAndAddToVirtualScene().
@@ -902,6 +950,8 @@ void PopMatrix(glm::mat4& M)
         g_MatrixStack.pop();
     }
 }
+
+
 
 // Função que computa as normais de um ObjModel, caso elas não tenham sido
 // especificadas dentro do arquivo ".obj"
