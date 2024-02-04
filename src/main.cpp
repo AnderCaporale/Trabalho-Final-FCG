@@ -205,6 +205,8 @@ glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
 std::vector<Wall> walls = std::vector<Wall>();
 std::vector<Bunny> bunnies = std::vector<Bunny>();
+float bunny_rotation_speed = 0.0f;
+float bunny_rotation_angle = 0.0f;
 int score = 0;
 
 int paredes[21][26] = {
@@ -579,6 +581,14 @@ int main(int argc, char* argv[])
             DrawVirtualObject("the_cube");
         }
 
+        // Parede sem colisão, que rotaciona com a tecla E (saída do labirinto)
+        model = Matrix_Translate(-0.5f, -0.5f, -19.5f)
+                * Matrix_Rotate_Y(bunny_rotation_angle)
+                * Matrix_Scale(1.0f, 1.0f, 0.01f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CUBEXY);
+        DrawVirtualObject("the_cube");
+
         //Desenha o chão
         model = Matrix_Identity();
         model = Matrix_Translate(-13, -0.505f, -25 )*
@@ -601,9 +611,11 @@ int main(int argc, char* argv[])
         }
 
          // Desenhamos o modelo dos coelhos
+        bunny_rotation_angle += bunny_rotation_speed*delta_t;
         for(auto bunny : bunnies){
             model = Matrix_Translate(bunny.position.x, bunny.position.y, bunny.position.z)
-                    * Matrix_Scale(0.1f, 0.1f, 0.1f);
+                    * Matrix_Scale(0.1f, 0.1f, 0.1f)
+                    * Matrix_Rotate_Y(bunny_rotation_angle);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, BUNNY);
             DrawVirtualObject("the_bunny");
@@ -650,9 +662,6 @@ int main(int argc, char* argv[])
         } else {
             glUniform1i(g_flashlight_on_uniform, 0);
         }
-
-        const std::string score_text = "Score: " + std::to_string(score);
-        TextRendering_PrintString(window, score_text, 10, 10, 2.0f);
 
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
@@ -1702,9 +1711,17 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_LEFT_SHIFT)
     {
         if (action == GLFW_PRESS)
-            speed = 6.0f;
-        else if (action == GLFW_RELEASE)
             speed = 3.0f;
+        else if (action == GLFW_RELEASE)
+            speed = 1.0f;
+    }
+
+    if (key == GLFW_KEY_E)
+    {
+        if (action == GLFW_PRESS)
+            bunny_rotation_speed = M_PI_2;
+        else if (action == GLFW_RELEASE)
+            bunny_rotation_speed = 0.0f;
     }
 
 
