@@ -105,6 +105,10 @@ typedef struct {
 } Wall;
 
 typedef struct {
+    glm::vec3 position;
+} Bunny;
+
+typedef struct {
     float x,z;
 } Coordenadas;
 

@@ -55,9 +55,6 @@
 #include "collisions.hpp"
 
 // Tamanho da tela
-#define SCREEN_WIDTH    800
-#define SCREEN_HEIGHT   800
-
 #define SPHERE      0
 #define BUNNY       1
 #define PLANE       2
@@ -121,6 +118,9 @@ void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
+
+int SCREEN_WIDTH  = 800;
+int SCREEN_HEIGHT = 800;
 
 // A cena virtual é uma lista de objetos nomeados, guardados em um dicionário
 // (map).  Veja dentro da função BuildTrianglesAndAddToVirtualScene() como que são incluídos
@@ -203,7 +203,9 @@ glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec4 player_position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
 glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
-std::vector<Wall> walls;
+std::vector<Wall> walls = std::vector<Wall>();
+std::vector<Bunny> bunnies = std::vector<Bunny>();
+int score = 0;
 
 int paredes[21][26] = {
     {2, 1, 1, 1, 3, 1, 3, 1, 1, 1, 3, 1, 1, 0, 1, 3, 1, 3, 1, 1, 1, 1, 3, 1, 1, 3},
@@ -238,6 +240,7 @@ Coordenadas CaminhoCorreto[80] = {
     {-1,18}, {0,18}, {0,19}, {0,20}, {0,21}
 };
 
+GLFWwindow* window;
 
 int main(int argc, char* argv[])
 {
@@ -267,8 +270,10 @@ int main(int argc, char* argv[])
 
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
-    GLFWwindow* window;
     window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "INF01047 - Trabalho Final FCG", NULL, NULL);
+    glfwMaximizeWindow(window);
+    glfwGetWindowSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
+    std::cout << "SCREEN_WIDTH: " << SCREEN_WIDTH << " SCREEN_HEIGHT: " << SCREEN_HEIGHT << std::endl;
 
     //Tela cheia
     //window = glfwCreateWindow(1366, 800, "INF01047 - Trabalho Final FCG", glfwGetPrimaryMonitor(), NULL);
@@ -406,6 +411,13 @@ int main(int argc, char* argv[])
         posCoelhoX[i] = rand()%24 + 1;
         posCoelhoZ[i] = rand()%17 + 2;
     }
+
+    Bunny bunny;
+    for(int i=0; i<10; i++){
+        bunny.position = glm::vec3(posCoelhoX[i]-13, -0.4f, -posCoelhoZ[i]);
+        bunnies.push_back(bunny);
+    }
+
     float cor_r=1,cor_g=1,cor_b=1;
     int tempo = 0;
     float segundosCicloDia = 30;
@@ -442,11 +454,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::cout << walls.size() << std::endl;
-    for(auto wall : walls){
-        std::cout << wall.position.x << " " << wall.position.y << " " << wall.position.z << std::endl;
-    }
-
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -477,6 +484,8 @@ int main(int argc, char* argv[])
         player_position += move_direction;
         camera_position_c = player_position;
         camera_position_c.y += 0.5f;
+
+        checkCollisionWithBunnies(player_position, bunnies, score);
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
@@ -533,7 +542,7 @@ int main(int argc, char* argv[])
 
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
-        float nearplane = -0.1f;  // Posição do "near plane"
+        float nearplane = -0.05f;  // Posição do "near plane"
         float farplane  = -35.0f; // Posição do "far plane"
 
         float field_of_view = 3.141592 / 3.0f;
@@ -552,8 +561,6 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
-
-        //std::cout << sin(M_PI/15*seconds) << std::endl;
 
         //Desenhamos o modelo da lua
         model = Matrix_Identity();
@@ -585,7 +592,7 @@ int main(int argc, char* argv[])
             model = Matrix_Identity();
             for(int i=0; i< 80; i++){
                 //Correção para não ficar exatamente sobreposto nas paredes: 0.005
-                model = Matrix_Translate(CaminhoCorreto[i].x-0.005, -0.50f, -CaminhoCorreto[i].z-1+0.005) *
+                model = Matrix_Translate(CaminhoCorreto[i].x-0.005, -0.40f, -CaminhoCorreto[i].z-1+0.005) *
                         Matrix_Scale(1.0f-0.005, 0.01f, 1.0f-0.005);
                 glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
                 glUniform1i(g_object_id_uniform, PATH);
@@ -594,15 +601,13 @@ int main(int argc, char* argv[])
         }
 
          // Desenhamos o modelo dos coelhos
-        for(int i=0; i< 10; ++i){
-            model = Matrix_Identity();
-            model = Matrix_Translate(posCoelhoX[i] - 13, -0.4f , -posCoelhoZ[i])
+        for(auto bunny : bunnies){
+            model = Matrix_Translate(bunny.position.x, bunny.position.y, bunny.position.z)
                     * Matrix_Scale(0.1f, 0.1f, 0.1f);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, BUNNY);
             DrawVirtualObject("the_bunny");
         }
-
 
         // Desenhamos o modelo da vaca
         model = Matrix_Identity();
@@ -612,8 +617,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, COW);
         DrawVirtualObject("the_cow");
         g_AngleY += 0.01;
-
-
 
         glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
         if(tecla_TAB_pressionada == 1){
@@ -648,6 +651,9 @@ int main(int argc, char* argv[])
             glUniform1i(g_flashlight_on_uniform, 0);
         }
 
+        const std::string score_text = "Score: " + std::to_string(score);
+        TextRendering_PrintString(window, score_text, 10, 10, 2.0f);
+
         float current_time = (float)glfwGetTime();
         delta_t = current_time - prev_time;
         prev_time = current_time;
@@ -666,6 +672,7 @@ int main(int argc, char* argv[])
             g_PlayerSpeed.z = speed * delta_t;
         if (!tecla_A_pressionada && !tecla_D_pressionada)
             g_PlayerSpeed.z = 0;
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
