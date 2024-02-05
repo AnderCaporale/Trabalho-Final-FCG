@@ -549,8 +549,8 @@ int main(int argc, char* argv[])
     bezierControlPoints2.push_back(glm::vec3(-19.0f , -25.0f, 0.0f));
     bezierControlPoints2.push_back(glm::vec3(-19.0f  , 0.0f, 0.0f));
 
-    float t_bezier;
-    float t_bezier_delta;
+    float t_bezier=0;
+    float t_bezier_delta=0;
     glm::vec3 bezierPoint;
     bool secondBezier = false;
 
@@ -576,10 +576,7 @@ int main(int argc, char* argv[])
         float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
 
         delta_t = seconds - prev_time;
-
         prev_time = seconds;
-
-
 
         if (tecla_L_pressionada){   //Camera Look-At
             camera_position_c  = glm::vec4(x, y, z-23, 1.0f); // Ponto "c", centro da câmera
@@ -605,30 +602,26 @@ int main(int argc, char* argv[])
             camera_position_c = player_position;
             camera_position_c.y += 0.5f;
 
-            if (checkCollisionWithBunnies(player_position, bunnies, score)){
+            if (checkCollisionWithBunnies(player_position, bunnies, score, tecla_TAB_pressionada)){
                 bunny_rotation_angle = 0.157 * score;
             }
 
-            if (checkCollisionWithCow(player_position, glm::vec3(0.0f, 0.1f, -24.0f))){
+            if (!tecla_TAB_pressionada && checkCollisionWithCow(player_position, glm::vec3(0.0f, 0.1f, -24.0f))){
                 if (!colisionCow){
                     timeBackup = (int)seconds;
                 }
-
                 colisionCow = true;
             }
 
-            if (colisionCow){
+            if (colisionCow ){
                 segundosCicloDia = 30 / ((seconds-timeBackup)*2);
 
 
                 //TO DO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
 
 
-
                 if (segundosCicloDia < 1){
                     exit(0);
-
-
                 }
             }
 
@@ -700,6 +693,9 @@ int main(int argc, char* argv[])
         }
         //Calcula os pontos de bezier com os pontos1 ou pontos2
         bezierPoint = (secondBezier)? bezierCubicCurve(bezierControlPoints2, t_bezier) : bezierCubicCurve(bezierControlPoints, t_bezier);
+
+
+        g_AngleY += 0.5 * delta_t;
 
         //Desenhamos o modelo do sol
         model = Matrix_Identity();
