@@ -27,6 +27,9 @@ uniform mat4 projection;
 #define MOON        7
 #define CUBEXY      8
 #define CUBEYZ      9
+#define GUN         10
+#define MAP         11
+#define SKY         12
 
 uniform int object_id;
 
@@ -48,6 +51,16 @@ uniform vec4 bbox_max;
 uniform sampler2D wallTexture;
 uniform sampler2D grassTexture;
 uniform sampler2D moonTexture;
+uniform sampler2D sunTexture;
+uniform sampler2D sunCloudsTexture;
+uniform sampler2D goldTexture;
+uniform sampler2D flashlightTexture;
+uniform sampler2D gun1Texture;
+uniform sampler2D gun2Texture;
+uniform sampler2D mapTexture;
+uniform sampler2D skyDayTexture;
+uniform sampler2D skyNightTexture;
+
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
 out vec4 color;
@@ -107,15 +120,13 @@ void main()
 
     if ( object_id == SPHERE )
     {
-        // PREENCHA AQUI
         // Propriedades espectrais da esfera
         Kd = vec3(0.8, 0.4, 0.08);
         Ks = vec3(0.0, 0.0, 0.0);
         Ka = Kd/2;
         q = 1.0;
     }
-    else if ( object_id == BUNNY)
-    {
+    else if ( object_id == BUNNY){
         // PREENCHA AQUI
         // Propriedades espectrais do coelho
         Kd = vec3(0.08, 0.4, 0.8);
@@ -132,42 +143,80 @@ void main()
         Ks = vec3(0.0, 0.0, 0.0);
         Ka = Kd/5;
         q = 20.0;
-    } else if ( object_id == PATH )
-    {
+    } else if ( object_id == PATH ){
         // PREENCHA AQUI
         // Propriedades espectrais do plano
         Kd = vec3(1.0, 0.0, 0.0);
         Ks = vec3(1.0, 0.0, 0.0);
         Ka = vec3(1.0, 0.0, 0.0);
         q = 1.0;
-    } else if ( object_id == COW)
-    {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.7, 0.7, 0.0);
-        Ks = vec3(1.0 , 1.0, 0.0);
-        Ka = Kd/2;
-        q = 32.0;
-    }
-    else if ( object_id == FLASHLIGHT )
-    {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.2, 0.2, 0.2);
-        Ks = vec3(0.3, 0.3, 0.3);
+    } else if ( object_id == COW){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = 5*texture(goldTexture, vec2(U,V)).rgb;
+        Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
-    } else if ( object_id == SUN)
-    {
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(1.0, 1.0, 0.0);
-        Ks = vec3(1.0 , 1.0, 0.0);
-        if (cos_pos_light > -0.80710678118)
-            Ka = Kd;
-        else
-            Ka = Kd/1.5;
-        q = 32.0;
+    }
+    else if ( object_id == FLASHLIGHT ){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+
+    } else if ( object_id == GUN ){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.x - minx)/(maxx - minx);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(flashlightTexture, vec2(U,V)).rgb;
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+    } else if ( object_id == SUN){
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float theta = atan(position_model.x, position_model.z);
+        float phi = asin(position_model.y);
+
+        U = (theta+M_PI)/(2*M_PI);
+        V = (phi+M_PI_2)/M_PI;
+
+        Kd = vec3(0.0, 0.0, 0.0);
+        Ka = (texture(sunTexture, vec2(U,V)).rgb + texture(sunCloudsTexture, vec2(U,V)).rgb*0.5)*max(0.01,sin_pos_light)*1.5;
+        Ks = vec3(0.0, 0.0, 0.0);
+        q = 1.0;
+
     }
     else if ( object_id == MOON)
     {
@@ -179,7 +228,7 @@ void main()
         U = (theta+M_PI)/(2*M_PI);
         V = (phi+M_PI_2)/M_PI;
         Kd = vec3(0.0, 0.0, 0.0);
-        Ka = texture(moonTexture, vec2(U,V)).rgb;
+        Ka = texture(moonTexture, vec2(U,V)).rgb * max(0.01, -sin_pos_light)*3;
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
     }
@@ -219,9 +268,42 @@ void main()
         Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
-    }
-    else // Objeto desconhecido = preto
-    {
+    } else if(object_id == MAP){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
+        Ks = Kd;
+        Ka = Kd/2;
+        q = 20.0;
+    }else if(object_id == SKY){
+
+        vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
+
+        float theta = atan(position_model.x, position_model.z);
+        float phi   = asin(position_model.y);
+
+        U = (theta + M_PI)   / (2*M_PI);
+        V = (phi   + M_PI_2) / M_PI;
+
+        Kd = vec3(0.0, 0.0, 0.0);
+                //Textura do Dia                      Só aparece de dia e bem pouco à noite
+        Ka =  texture(skyDayTexture, vec2(U,V)).rgb * max(0.002, sin_pos_light)*2
+            + texture(skyNightTexture, vec2(U,V)).rgb * max(0.000, -sin_pos_light) * (1-abs(cos_pos_light))*0.5 ;
+                //Textura da Noite (estrelas)              Só aparece de noite         Aparece gradualmente
+        Ks = vec3(0.0, 0.0, 0.0);
+        q = 1.0;
+
+    }else { // Objeto desconhecido = preto
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
         Ka = vec3(0.0,0.0,0.0);
@@ -230,7 +312,6 @@ void main()
 
     // Espectro da fonte de iluminação
     vec3 I_flash = vec3(1.0, 1.0, 1.0);
-    vec3 I_sun = vec3(1.0, 0.95, 0.8); 
     vec3 I_moon = vec3(0.2, 0.2, 0.5);
 
     // Espectro da luz ambiente
@@ -271,7 +352,7 @@ void main()
         float cos_angle = dot(normalize(p - pontoL), normalize(direcao));
         if(cos_angle >= abertura){
             color_flash.rgb = (lambert_diffuse_term_flash + phong_specular_term_flash)*(pow(cos_angle, 5));
-         }
+        }
     }
 
     if(sin_pos_light > 0.0){
@@ -283,7 +364,7 @@ void main()
 
     color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
-    if(object_id == MOON || object_id == PATH ){
+    if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY){
         color.rgb = Ka*vec3(1.0, 1.0, 1.0);
     }
     if(object_id == SUN){
@@ -293,9 +374,7 @@ void main()
         else{
             color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.7), max(sin_pos_light,0.7));
         }
-
     }
 
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
-
 }

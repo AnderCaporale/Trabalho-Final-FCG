@@ -29,8 +29,6 @@ std::vector<Wall> getClosestWalls(glm::vec4& player_position, std::vector<Wall>&
     return closest_walls;
 }
 
-
-
 std::tuple<glm::vec4, glm::vec4> getFacePointAndNormal(Wall& wall, FaceDirection face, glm::vec4& player_position){
     glm::vec4 c;
     glm::vec4 n;
@@ -162,7 +160,6 @@ std::tuple<bool, Wall, FaceDirection, glm::vec4, glm::vec4> getCollisionWallAndF
 void checkCollisionWithWalls(glm::vec4& player_position, glm::vec4& move_direction, std::vector<Wall>& walls)
 {
     std::vector<Wall> closest_walls = getClosestWalls(player_position, walls);
-    // std::vector<Wall> closest_walls = walls;
 
     bool has_collision;
     Wall collision_wall;
