@@ -141,8 +141,6 @@ float g_AngleX = 0.0f;
 float g_AngleY = 0.0f;
 float g_AngleZ = 0.0f;
 
-float g_AngleSword = 0.0f;
-
 // "g_LeftMouseButtonPressed = true" se o usuário está com o botão esquerdo do mouse
 // pressionado no momento atual. Veja função MouseButtonCallback().
 bool g_LeftMouseButtonPressed = false;
@@ -358,16 +356,15 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/textures/sunTexture.jpg");
     LoadTextureImage("../../data/textures/sunCloudsTexture.jpg");
     LoadTextureImage("../../data/textures/gold1Texture.jpg");
-    LoadTextureImage("../../data/objs/sword/texture.jpg");
+    LoadTextureImage("../../data/textures/flashlightTexture.jpg");
     LoadTextureImage("../../data/textures/gun1Texture.jpg");
     LoadTextureImage("../../data/textures/gun2Texture.jpg");
     LoadTextureImage("../../data/textures/mapTexture.png");
     LoadTextureImage("../../data/textures/sky/skyDayTexture.jpg");
     LoadTextureImage("../../data/textures/sky/skyNightTexture.jpg");
     LoadTextureImage("../../data/textures/brickTexture.jpg");
-    LoadTextureImage("../../data/objs/minotaur/RGB_98e9108b7b964e7aaf6a269fd9188339_ms04_01_Minotaur_1.png");
-    LoadTextureImage("../../data/objs/sword/texture_S.jpg");
-    //LoadTextureImage("../../data/objs/sword/texture3.jpg");
+    LoadTextureImage("../../data/objs/minotaur3/RGB_98e9108b7b964e7aaf6a269fd9188339_ms04_01_Minotaur_1.png");
+    LoadTextureImage("../../data/objs/minotaur3/RGB_98e9108b7b964e7aaf6a269fd9188339_ms04_01_Minotaur_1.png");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/objs/sphere.obj");
@@ -398,13 +395,9 @@ int main(int argc, char* argv[])
     ComputeNormals(&cubeModel);
     BuildTrianglesAndAddToVirtualScene(&cubeModel);
 
-    ObjModel minotaurModel("../../data/objs/minotaur/model.obj");
+    ObjModel minotaurModel("../../data/objs/minotaur3/model.obj");
     ComputeNormals(&minotaurModel);
     BuildTrianglesAndAddToVirtualScene(&minotaurModel);
-
-    ObjModel swordModel("../../data/objs/sword/model.obj");
-    ComputeNormals(&swordModel);
-    BuildTrianglesAndAddToVirtualScene(&swordModel);
 
     // Construímos a representação de um triângulo
     GLuint vertex_array_object_id = BuildTriangles();
@@ -618,12 +611,10 @@ int main(int argc, char* argv[])
             }
 
             if (colisionCow){
+                float lineheight = TextRendering_LineHeight(window);
+                float charwidth = TextRendering_CharWidth(window);
+                TextRendering_PrintString(window, "FIAAAAAAAAAAAM", charwidth, lineheight, 1.0f);
                 segundosCicloDia = 30 / ((seconds-timeBackup)*2);
-
-
-                //TO DO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
-
-
 
                 if (segundosCicloDia < 1){
                     exit(0);
@@ -796,7 +787,6 @@ int main(int argc, char* argv[])
             model = Matrix_Translate(-0.04, -0.055, -0.1)
                     * Matrix_Scale(0.05f, 0.05f, 0.001f)
                     * Matrix_Rotate_Y(M_PI/2);
-
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, MAP);
             glClear(GL_DEPTH_BUFFER_BIT);
@@ -817,15 +807,13 @@ int main(int argc, char* argv[])
         } else {
             tecla_F_pressionada = 0;
             //Desenhamos o modelo da arma, grudada na tela
-            model = Matrix_Translate(0.85, -0.1, -2)
-                    * Matrix_Scale(0.9f, 0.9f, 0.9f)
-                    * Matrix_Rotate_Y(M_PI/2)
-                    * Matrix_Rotate_X(-0.2)
-                    * Matrix_Rotate_Z(-g_AngleSword);
+            model = Matrix_Translate(0.25, -0.3, -0.8)
+                    * Matrix_Scale(0.03f, 0.03f, 0.03f)
+                    * Matrix_Rotate_Y(M_PI/2);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, GUN);
             glClear(GL_DEPTH_BUFFER_BIT);
-            DrawVirtualObject("Object_TexMap");
+            DrawVirtualObject("the_gun");
         }
 
 
@@ -1040,7 +1028,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "sunTexture"), 3);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "sunCloudsTexture"), 4);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "goldTexture"), 5);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "swordTexture"), 6);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "flashlightTexture"), 6);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "gun1Texture"), 7);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "gun2Texture"), 8);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "mapTexture"), 9);
@@ -1048,8 +1036,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyNightTexture"), 11);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "brickTexture"), 12);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "minotaurBodyTexture"), 13);
-    glUniform1i(glGetUniformLocation(g_GpuProgramID, "swordTextureS"), 14);
-
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "minotaurSkirtTexture"), 14);
     glUseProgram(0);
 }
 
@@ -1701,14 +1688,12 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
         // com o botão esquerdo pressionado.
         glfwGetCursorPos(window, &g_LastCursorPosX, &g_LastCursorPosY);
         g_LeftMouseButtonPressed = true;
-        g_AngleSword = 0.3;
     }
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE)
     {
         // Quando o usuário soltar o botão esquerdo do mouse, atualizamos a
         // variável abaixo para false.
         g_LeftMouseButtonPressed = false;
-        g_AngleSword = 0.0;
     }
     if (button == GLFW_MOUSE_BUTTON_RIGHT && action == GLFW_PRESS)
     {

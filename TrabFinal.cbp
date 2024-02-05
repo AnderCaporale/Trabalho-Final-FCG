@@ -367,6 +367,7 @@
 		<Unit filename="include/glm/vector_relational.hpp" />
 		<Unit filename="include/matrices.h" />
 		<Unit filename="include/utils.h" />
+		<Unit filename="src/collisions.cpp" />
 		<Unit filename="src/glad.c">
 			<Option compilerVar="CC" />
 		</Unit>

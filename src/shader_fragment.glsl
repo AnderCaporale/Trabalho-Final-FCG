@@ -36,7 +36,7 @@ uniform mat4 projection;
 uniform int object_id;
 
 uniform int flashlight_on;
-uniform int segundosCicloDia;
+uniform float segundosCicloDia;
 uniform float ligth_pos;
 
 uniform float flashligth_pos_x;
@@ -56,13 +56,15 @@ uniform sampler2D moonTexture;
 uniform sampler2D sunTexture;
 uniform sampler2D sunCloudsTexture;
 uniform sampler2D goldTexture;
-uniform sampler2D flashlightTexture;
+uniform sampler2D swordTexture;
 uniform sampler2D gun1Texture;
 uniform sampler2D gun2Texture;
 uniform sampler2D mapTexture;
 uniform sampler2D skyDayTexture;
 uniform sampler2D skyNightTexture;
 uniform sampler2D brickTexture;
+uniform sampler2D minotaurBodyTexture;
+uniform sampler2D swordTextureS;
 
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
@@ -145,6 +147,7 @@ void main()
         Ks = vec3(0.0, 0.0, 0.0);
         Ka = Kd/5;
         q = 20.0;
+
     } else if ( object_id == PATH ){
         // PREENCHA AQUI
         // Propriedades espectrais do plano
@@ -152,25 +155,15 @@ void main()
         Ks = vec3(1.0, 0.0, 0.0);
         Ka = vec3(1.0, 0.0, 0.0);
         q = 1.0;
+
     } else if ( object_id == COW){
-        float minx = bbox_min.x;
-        float maxx = bbox_max.x;
 
-        float miny = bbox_min.y;
-        float maxy = bbox_max.y;
-
-        float minz = bbox_min.z;
-        float maxz = bbox_max.z;
-
-        U = (position_model.x - minx)/(maxx - minx);
-        V = (position_model.y - miny)/(maxy - miny);
-
-        Kd = 5*texture(goldTexture, vec2(U,V)).rgb;
+        Kd = 5*texture(minotaurBodyTexture, vec2(texcoords.x,texcoords.y)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 20.0;
-    }
-    else if ( object_id == FLASHLIGHT ){
+        q = 2.0;
+
+    } else if ( object_id == FLASHLIGHT ){
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
 
@@ -201,8 +194,8 @@ void main()
         U = (position_model.x - minx)/(maxx - minx);
         V = (position_model.y - miny)/(maxy - miny);
 
-        Kd = texture(flashlightTexture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Kd = texture(swordTexture, vec2(texcoords.x,texcoords.y)).rgb;
+        Ks = texture(swordTextureS, vec2(texcoords.x,texcoords.y)).rgb;
         Ka = Kd/2;
         q = 20.0;
     } else if ( object_id == SUN){

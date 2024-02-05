@@ -200,3 +200,16 @@ bool checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &b
     }
     return false;
 }
+
+bool checkCollisionWithCow(glm::vec4 &player_position, glm::vec3 positionCow)
+{
+    if (pow(player_position.x - positionCow.x, 2) +
+        pow(player_position.y - positionCow.y - 0.1, 2) +
+        pow(player_position.z - positionCow.z, 2) <= 1.0f)
+        {
+            //std::cout << "Tocou vaca\n";
+            return true;
+        }
+
+    return false;
+}
