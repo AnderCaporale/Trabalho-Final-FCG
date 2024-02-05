@@ -57,7 +57,6 @@
 // Tamanho da tela
 #define SCREEN_WIDTH    800
 #define SCREEN_HEIGHT   700
-
 #define SPHERE      0
 #define BUNNY       1
 #define PLANE       2
@@ -123,10 +122,12 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
-
 glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float time);
 
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
+
+int SCREEN_WIDTH  = 800;
+int SCREEN_HEIGHT = 800;
 
 // A cena virtual é uma lista de objetos nomeados, guardados em um dicionário
 // (map).  Veja dentro da função BuildTrianglesAndAddToVirtualScene() como que são incluídos
@@ -205,12 +206,16 @@ bool tecla_L_pressionada = false;
 bool tecla_M_pressionada = false;
 bool tecla_TAB_pressionada = false;
 
-float speed = 3.0f; // Velocidade da câmera
+float speed = 1.0f; // Velocidade da câmera
 glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec4 player_position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
-glm::vec4 camera_position_c = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
+glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
-std::vector<Wall> walls;
+std::vector<Wall> walls = std::vector<Wall>();
+std::vector<Bunny> bunnies = std::vector<Bunny>();
+float bunny_rotation_speed = 0.0f;
+float bunny_rotation_angle = 0.0f;
+int score = 0;
 
 int paredes[22][26] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -246,6 +251,8 @@ Coordenadas CaminhoCorreto[80] = {
     {-1,17}, {0,17}, {0,18}, {0,19}, {0,20}, {0,21}
 };
 
+GLFWwindow* window;
+
 float posXFree , posZFree, posXLookAt , posZLookAt ;
 glm::vec4 camera_view_vector_backup;
 glm::vec4 move_direction_backup;
@@ -278,8 +285,10 @@ int main(int argc, char* argv[])
 
     // Criamos uma janela do sistema operacional, com 800 colunas e 600 linhas
     // de pixels, e com título "INF01047 ...".
-    GLFWwindow* window;
     window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "INF01047 - Trabalho Final FCG", NULL, NULL);
+    glfwMaximizeWindow(window);
+    glfwGetWindowSize(window, &SCREEN_WIDTH, &SCREEN_HEIGHT);
+    std::cout << "SCREEN_WIDTH: " << SCREEN_WIDTH << " SCREEN_HEIGHT: " << SCREEN_HEIGHT << std::endl;
 
     //Tela cheia
     //window = glfwCreateWindow(1366, 800, "INF01047 - Trabalho Final FCG", glfwGetPrimaryMonitor(), NULL);
@@ -311,7 +320,7 @@ int main(int argc, char* argv[])
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
     GLenum error;
-    while ((error = glGetError()) != GL_NO_ERROR)
+    while ((error = glGetError()) != GL_NO_ERROR) 
     {
         std::cout << "OpenGL error: " << error << std::endl;
     }
@@ -427,6 +436,13 @@ int main(int argc, char* argv[])
         posCoelhoX[i] = rand()%24 + 1;
         posCoelhoZ[i] = rand()%17 + 2;
     }
+
+    Bunny bunny;
+    for(int i=0; i<10; i++){
+        bunny.position = glm::vec3(posCoelhoX[i]-13, -0.4f, -posCoelhoZ[i]);
+        bunnies.push_back(bunny);
+    }
+
     float cor_r=1,cor_g=1,cor_b=1;
     int tempo = 0;
     float segundosCicloDia = 15;
@@ -484,6 +500,38 @@ int main(int argc, char* argv[])
     glm::vec3 bezierPoint;
     bool secondBezier = false;
 
+    Wall wall;
+    for(int i=0; i<21; i++){
+        for(int j=0; j<26; j++){
+            if(paredes[i][j] == XYWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
+                wall.dir = CUBEXY;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 1.0f, 0.01f);
+            }
+            else if(paredes[i][j] == YZWALL){
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
+                wall.dir = CUBEYZ;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 1.0f, 1.0f);
+            }
+            else if(paredes[i][j] == XY_YZWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
+                wall.dir = CUBEXY;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 1.0f, 0.01f);
+                walls.push_back(wall);
+
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
+                wall.dir = CUBEYZ;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 1.0f, 1.0f);
+            }
+            if (paredes[i][j] != 0)
+                walls.push_back(wall);
+        }
+    }
+
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -497,9 +545,7 @@ int main(int argc, char* argv[])
         float y = r*sin(g_CameraPhi);
         float x = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
-
-        // Atualiza delta de tempo
-        //float current_time = (float)glfwGetTime();
+      
         delta_t = seconds - prev_time;
 
         prev_time = seconds;
@@ -509,36 +555,26 @@ int main(int argc, char* argv[])
             camera_lookat_l    = glm::vec4(0.0f,0.0f,-24.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
             camera_view_vector = camera_lookat_l - camera_position_c; // Vetor "view", sentido para onde a câmera está virada
 
-        } else {    //Camera Normal
-            // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
-            camera_view_vector = glm::vec4(x, y, z, 0.0f); // Vetor "view", sentido para onde a câmera está virada
+        } else {
+        // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
+            camera_view_vector = normalize(glm::vec4(x, y, z, 0.0f)); // Vetor "view", sentido para onde a câmera está virada
+            //glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
+            glm::vec4 front_vec = camera_view_vector;
+            front_vec.y = 0.0f;
+            front_vec = normalize(front_vec);
+            glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
+            glm::vec4 player_new_position = player_position + front_vec * g_PlayerSpeed.x
+                                                            + side_vec  * g_PlayerSpeed.z
+                                                            + camera_up_vector * g_PlayerSpeed.y;
+            glm::vec4 move_direction = player_new_position - player_position;
 
-            glm::vec4 vetor_w = -camera_view_vector / norm(camera_view_vector);
-            if (!tecla_C_pressionada){  //Camera Livre
-                vetor_w.y = 0.0f;
-                camera_position_c.y=0;
-            }
-            glm::vec4 vetor_u = crossproduct(camera_up_vector, vetor_w) / norm(crossproduct(camera_up_vector, vetor_w));
+            checkCollisionWithWalls(player_position, move_direction, walls);
 
-            if (tecla_W_pressionada){
-                // Movimenta câmera para frente
-                camera_position_c += -vetor_w * speed * delta_t;
-            }
+            player_position += move_direction;
+            camera_position_c = player_position;
+            camera_position_c.y += 0.5f;
 
-            if (tecla_A_pressionada){
-                // Movimenta câmera para esquerda
-                camera_position_c += -vetor_u * speed * delta_t;
-            }
-
-            if (tecla_S_pressionada){
-                // Movimenta câmera para trás
-                camera_position_c += vetor_w * speed * delta_t;
-            }
-
-            if (tecla_D_pressionada){
-                // Movimenta câmera para direita
-                camera_position_c += vetor_u * speed * delta_t;
-            }
+            checkCollisionWithBunnies(player_position, bunnies, score);
         }
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
@@ -596,7 +632,7 @@ int main(int argc, char* argv[])
 
         // Note que, no sistema de coordenadas da câmera, os planos near e far
         // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
-        float nearplane = -0.1f;  // Posição do "near plane"
+        float nearplane = -0.05f;  // Posição do "near plane"
         float farplane  = -35.0f; // Posição do "far plane"
 
         float field_of_view = 3.141592 / 3.0f;
@@ -641,9 +677,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, SUN);
         DrawVirtualObject("the_sphere");
 
-
-
-
         //Desenhamos o modelo da lua
         model = Matrix_Identity();
         model = Matrix_Translate(-bezierPoint.x, -bezierPoint.y, -13.0f)
@@ -655,7 +688,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, MOON);
         DrawVirtualObject("the_sphere");
 
-
          // Desenho do labirinto
         for(Wall wall : walls){
             glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(wall.model));
@@ -663,10 +695,18 @@ int main(int argc, char* argv[])
             DrawVirtualObject("the_cube");
         }
 
+        // Parede sem colisão, que rotaciona com a tecla E (saída do labirinto)
+        model = Matrix_Translate(-0.5f, -0.5f, -19.5f)
+                * Matrix_Rotate_Y(bunny_rotation_angle)
+                * Matrix_Scale(1.0f, 1.0f, 0.01f);
+        glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, CUBEXY);
+        DrawVirtualObject("the_cube");
+
         //Desenha o chão
         model = Matrix_Identity();
-        model = Matrix_Translate(-13, -0.505f, -25.5 )*
-                Matrix_Scale(26.0f, 0.01f, 27.0f);
+        model = Matrix_Translate(-13, -0.505f, -25 )*
+                Matrix_Scale(26.0f, 0.01f, 26.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_cube");
@@ -686,15 +726,15 @@ int main(int argc, char* argv[])
         }
 
          // Desenhamos o modelo dos coelhos
-        for(int i=0; i< 10; ++i){
-            model = Matrix_Identity();
-            model = Matrix_Translate(posCoelhoX[i] - 13, -0.4f , -posCoelhoZ[i])
-                    * Matrix_Scale(0.1f, 0.1f, 0.1f);
+        bunny_rotation_angle += bunny_rotation_speed*delta_t;
+        for(auto bunny : bunnies){
+            model = Matrix_Translate(bunny.position.x, bunny.position.y, bunny.position.z)
+                    * Matrix_Scale(0.1f, 0.1f, 0.1f)
+                    * Matrix_Rotate_Y(bunny_rotation_angle);
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
             glUniform1i(g_object_id_uniform, BUNNY);
             DrawVirtualObject("the_bunny");
         }
-
 
         // Desenhamos o modelo da vaca
         model = Matrix_Identity();
@@ -704,7 +744,6 @@ int main(int argc, char* argv[])
         glUniform1i(g_object_id_uniform, COW);
         DrawVirtualObject("the_cow");
         g_AngleY += 0.5 * delta_t;
-
 
         //Desenhamos o mapa do labirinto, grudada na tela
         if(tecla_M_pressionada){
@@ -718,8 +757,7 @@ int main(int argc, char* argv[])
             glClear(GL_DEPTH_BUFFER_BIT);
             DrawVirtualObject("the_cube");
         }
-
-
+      
         glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
         if(tecla_TAB_pressionada == 1){
             //Desenhamos o modelo da lanterna, grudada na tela
@@ -751,6 +789,24 @@ int main(int argc, char* argv[])
             glUniform1i(g_flashlight_on_uniform, 0);
         }
 
+        float current_time = (float)glfwGetTime();
+        delta_t = current_time - prev_time;
+        prev_time = current_time;
+
+        // Realiza movimentação do jogador
+        if (tecla_W_pressionada)
+            g_PlayerSpeed.x = speed * delta_t;
+        if (tecla_S_pressionada)
+            g_PlayerSpeed.x = -speed * delta_t;
+        if (!tecla_W_pressionada && !tecla_S_pressionada)
+            g_PlayerSpeed.x = 0;
+
+        if (tecla_A_pressionada)
+            g_PlayerSpeed.z = -speed * delta_t;
+        if (tecla_D_pressionada)
+            g_PlayerSpeed.z = speed * delta_t;
+        if (!tecla_A_pressionada && !tecla_D_pressionada)
+            g_PlayerSpeed.z = 0;
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
@@ -776,8 +832,6 @@ glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float t)
 
     return ct;
 }
-
-
 
 
 
@@ -944,7 +998,6 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "mapTexture"), 9);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyDayTexture"), 10);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyNightTexture"), 11);
-
     glUseProgram(0);
 }
 
@@ -1778,9 +1831,17 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_LEFT_SHIFT)
     {
         if (action == GLFW_PRESS)
-            speed = 6.0f;
-        else if (action == GLFW_RELEASE)
             speed = 3.0f;
+        else if (action == GLFW_RELEASE)
+            speed = 1.0f;
+    }
+
+    if (key == GLFW_KEY_E)
+    {
+        if (action == GLFW_PRESS)
+            bunny_rotation_speed = M_PI_2;
+        else if (action == GLFW_RELEASE)
+            bunny_rotation_speed = 0.0f;
     }
 
 

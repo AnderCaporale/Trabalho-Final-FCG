@@ -118,8 +118,8 @@ void main()
     float V = 0.0;
     vec3 debugColor;
 
-    if ( object_id == SPHERE ){
-        // PREENCHA AQUI
+    if ( object_id == SPHERE )
+    {
         // Propriedades espectrais da esfera
         Kd = vec3(0.8, 0.4, 0.08);
         Ks = vec3(0.0, 0.0, 0.0);
@@ -134,7 +134,8 @@ void main()
         Ka = Kd/2;
         q = 32.0;
     }
-    else if ( object_id == PLANE ){
+    else if ( object_id == PLANE )
+    {
         U = (position_world.x);
         V = (position_world.z);
 
@@ -217,7 +218,8 @@ void main()
         q = 1.0;
 
     }
-    else if ( object_id == MOON){
+    else if ( object_id == MOON)
+    {
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
         float theta = atan(position_model.x, position_model.z);
@@ -248,7 +250,8 @@ void main()
         Ka = Kd/2;
         q = 20.0;
     }
-    else if(object_id == CUBEYZ){
+    else if(object_id == CUBEYZ)
+    {
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
 
@@ -309,14 +312,10 @@ void main()
 
     // Espectro da fonte de iluminação
     vec3 I_flash = vec3(1.0, 1.0, 1.0);
-    vec3 I_sun = vec3(1.0, 0.95, 0.8);
     vec3 I_moon = vec3(0.2, 0.2, 0.5);
 
     // Espectro da luz ambiente
     vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
-    // Espectro da luz ambiente
-    vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
-    vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
@@ -325,9 +324,6 @@ void main()
 
     // Termo ambiente
     vec3 ambient_term = Ka*Ia;
-    // Termo ambiente
-    vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
-    vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
 
     // Termo especular utilizando o modelo de iluminação de Phong
     vec3 phong_specular_term_flash  = Ks*I_flash*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
@@ -363,13 +359,10 @@ void main()
         color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + phong_specular_term_time_sun;
     }
     if(sin_pos_light < 0.0){
-        color_time_moon.rgb = -sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
+        color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
     }
 
-    if(object_id == BUNNY)
-        color.rgb = 2*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term_time;
-    else
-        color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term_time;
+    color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
     if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY){
         color.rgb = Ka*vec3(1.0, 1.0, 1.0);
@@ -381,9 +374,7 @@ void main()
         else{
             color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.7), max(sin_pos_light,0.7));
         }
-
     }
 
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
-
 }
