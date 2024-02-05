@@ -183,7 +183,7 @@ void checkCollisionWithWalls(glm::vec4& player_position, glm::vec4& move_directi
 
 }
 
-void checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &bunnies, int &score)
+bool checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &bunnies, int &score)
 {
     for (int i = 0; i < bunnies.size(); i++)
     {
@@ -195,6 +195,8 @@ void checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &b
             bunnies.erase(bunnies.begin() + i);
             score++;
             i--;
+            return true;
         }
     }
+    return false;
 }

@@ -68,10 +68,13 @@
 #define GUN         10
 #define MAP         11
 #define SKY         12
+#define CUBEXY_FIM  13
+#define CUBEYZ_FIM  14
 
 #define XYWALL      1
 #define YZWALL      2
 #define XY_YZWALL   3
+
 
 // Declaração de funções utilizadas para pilha de matrizes de modelagem.
 void PushMatrix(glm::mat4 M);
@@ -204,16 +207,18 @@ bool tecla_L_pressionada = false;
 bool tecla_M_pressionada = false;
 bool tecla_TAB_pressionada = false;
 
-float speed = 1.0f; // Velocidade da câmera
+float speed = 50.0f; // Velocidade da câmera
 glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec4 player_position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
 glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
 std::vector<Wall> walls = std::vector<Wall>();
+std::vector<Wall> wallsFim = std::vector<Wall>();
 std::vector<Bunny> bunnies = std::vector<Bunny>();
-float bunny_rotation_speed = 0.0f;
-float bunny_rotation_angle = 0.0f;
 int score = 0;
+float bunny_rotation_speed = 0.0f;
+float bunny_rotation_angle = 0.01 * score;
+
 
 int paredes[22][26] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
@@ -239,6 +244,18 @@ int paredes[22][26] = {
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
     {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 };
+
+int paredesFim[7][26] = {
+    {2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 3},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+    {2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2},
+};
+
+
 
 Coordenadas CaminhoCorreto[80] = {
     {0,-2}, {0,-1}, {0,0}, {-1, 0}, {-1,1}, {-1,2}, {-1,3}, {0,3}, {0,2}, {1,2}, {1,3}, {2,3}, {2,4}, {3,4}, {3,5},
@@ -318,7 +335,7 @@ int main(int argc, char* argv[])
     gladLoadGLLoader((GLADloadproc) glfwGetProcAddress);
 
     GLenum error;
-    while ((error = glGetError()) != GL_NO_ERROR) 
+    while ((error = glGetError()) != GL_NO_ERROR)
     {
         std::cout << "OpenGL error: " << error << std::endl;
     }
@@ -354,6 +371,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/textures/mapTexture.png");
     LoadTextureImage("../../data/textures/sky/skyDayTexture.jpg");
     LoadTextureImage("../../data/textures/sky/skyNightTexture.jpg");
+    LoadTextureImage("../../data/textures/brickTexture.jpg");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/objs/sphere.obj");
@@ -424,6 +442,16 @@ int main(int argc, char* argv[])
     glm::vec4 camera_view_vector = normalize(glm::vec4(x, y, z, 0.0f));
     glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
 
+    // Agora computamos a matriz de Projeção.
+    glm::mat4 projection;
+
+    // Note que, no sistema de coordenadas da câmera, os planos near e far
+    // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
+    float nearplane = -0.05f;  // Posição do "near plane"
+    float farplane  = -35.0f; // Posição do "far plane"
+
+    float field_of_view = 3.141592 / 3.0f;
+
     float prev_time = (float)glfwGetTime();
     float delta_t;
     glm::mat4 model = Matrix_Identity();
@@ -440,10 +468,6 @@ int main(int argc, char* argv[])
         bunny.position = glm::vec3(posCoelhoX[i]-13, -0.4f, -posCoelhoZ[i]);
         bunnies.push_back(bunny);
     }
-
-    float cor_r=1,cor_g=1,cor_b=1;
-    int tempo = 0;
-    float segundosCicloDia = 15;
 
     Wall wall;
     for(int i=0; i<22; i++){
@@ -477,6 +501,39 @@ int main(int argc, char* argv[])
         }
     }
 
+    Wall wallFim;
+    for(int i=0; i<7; i++){
+        for(int j=0; j<26; j++){
+            if(paredesFim[i][j] == XYWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 25.5);
+                wall.dir = CUBEXY_FIM;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 2.0f, 0.01f);
+            }
+            else if(paredesFim[i][j] == YZWALL){
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 25.5);
+                wall.dir = CUBEYZ_FIM;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 2.0f, 1.0f);
+            }
+            else if(paredesFim[i][j] == XY_YZWALL){
+                wall.position = glm::vec3(j-13.5, -0.5f, i - 25.5);
+                wall.dir = CUBEXY_FIM;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(1.0f, 2.0f, 0.01f);
+                wallsFim.push_back(wall);
+
+                wall.position = glm::vec3(j-12.5, -0.5f, i - 25.5);
+                wall.dir = CUBEYZ_FIM;
+                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
+                             Matrix_Scale(0.01f, 2.0f, 1.0f);
+            }
+            if (paredesFim[i][j] != 0)
+                wallsFim.push_back(wall);
+        }
+    }
+
+
     std::vector<glm::vec3> bezierControlPoints, bezierControlPoints2;
     bezierControlPoints.push_back(glm::vec3(-19.0f, 0.0f, 0.0f));
     bezierControlPoints.push_back(glm::vec3(-19.0f , 25.0f, 0.0f));
@@ -493,6 +550,8 @@ int main(int argc, char* argv[])
     glm::vec3 bezierPoint;
     bool secondBezier = false;
 
+    float segundosCicloDia = 15;
+
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
     {
@@ -506,7 +565,7 @@ int main(int argc, char* argv[])
         float y = r*sin(g_CameraPhi);
         float x = r*cos(g_CameraPhi)*cos(g_CameraTheta);
         float z = r*cos(g_CameraPhi)*sin(g_CameraTheta);
-      
+
         delta_t = seconds - prev_time;
 
         prev_time = seconds;
@@ -535,7 +594,9 @@ int main(int argc, char* argv[])
             camera_position_c = player_position;
             camera_position_c.y += 0.5f;
 
-            checkCollisionWithBunnies(player_position, bunnies, score);
+            if (checkCollisionWithBunnies(player_position, bunnies, score)){
+                bunny_rotation_angle = 0.157 * score;
+            }
         }
 
         // Computamos a matriz "View" utilizando os parâmetros da câmera para
@@ -558,23 +619,7 @@ int main(int argc, char* argv[])
         // Conversaremos sobre sistemas de cores nas aulas de Modelos de Iluminação.
         //
         //           R     G     B     A
-
-
-
-        if (tempo - int(seconds) != 0){
-            tempo++;
-        }
-
-        if ( tempo%(int(segundosCicloDia)*2) > segundosCicloDia*0.75 && tempo%(int(segundosCicloDia)*2) < int(segundosCicloDia)){
-            cor_r = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
-            cor_g = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
-            cor_b = 1 - (1/segundosCicloDia * (tempo%(int(segundosCicloDia))));
-        } else if ( tempo%(int(segundosCicloDia)*2) > segundosCicloDia*1.75){
-            cor_r = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
-            cor_g = 1/segundosCicloDia * (tempo%(int(segundosCicloDia)));
-            cor_b = 1/segundosCicloDia * (tempo%(int(segundosCicloDia))) + 0.5;
-        }
-        glClearColor(cor_r, cor_g, cor_b, 1.0f);
+        glClearColor(1, 1, 1, 1.0f);
 
         // "Pintamos" todos os pixels do framebuffer com a cor definida acima,
         // e também resetamos todos os pixels do Z-buffer (depth buffer).
@@ -589,14 +634,7 @@ int main(int argc, char* argv[])
         //glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
         // Agora computamos a matriz de Projeção.
-        glm::mat4 projection;
 
-        // Note que, no sistema de coordenadas da câmera, os planos near e far
-        // estão no sentido negativo! Veja slides 176-204 do documento Aula_09_Projecoes.pdf.
-        float nearplane = -0.05f;  // Posição do "near plane"
-        float farplane  = -35.0f; // Posição do "far plane"
-
-        float field_of_view = 3.141592 / 3.0f;
         projection = Matrix_Perspective(field_of_view, g_ScreenRatio, nearplane, farplane);
 
         // Enviamos as matrizes "view" e "projection" para a placa de vídeo
@@ -606,7 +644,7 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(g_projection_uniform , 1 , GL_FALSE , glm::value_ptr(projection));
 
 
-        //Tentativa SkyBox
+        //SkyBox
         glCullFace(GL_FRONT);
         model = Matrix_Identity();
         model = Matrix_Translate(camera_position_c.x, camera_position_c.y, camera_position_c.z);
@@ -656,6 +694,13 @@ int main(int argc, char* argv[])
             DrawVirtualObject("the_cube");
         }
 
+         // Desenho do final do labirinto
+        for(Wall wall : wallsFim){
+            glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(wall.model));
+            glUniform1i(g_object_id_uniform, wall.dir);
+            DrawVirtualObject("the_cube");
+        }
+
         // Parede sem colisão, que rotaciona com a tecla E (saída do labirinto)
         model = Matrix_Translate(-0.5f, -0.5f, -19.5f)
                 * Matrix_Rotate_Y(bunny_rotation_angle)
@@ -666,8 +711,8 @@ int main(int argc, char* argv[])
 
         //Desenha o chão
         model = Matrix_Identity();
-        model = Matrix_Translate(-13, -0.505f, -25 )*
-                Matrix_Scale(26.0f, 0.01f, 26.0f);
+        model = Matrix_Translate(-13, -0.505f, -25.5 )*
+                Matrix_Scale(26.0f, 0.01f, 27.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, PLANE);
         DrawVirtualObject("the_cube");
@@ -718,7 +763,7 @@ int main(int argc, char* argv[])
             glClear(GL_DEPTH_BUFFER_BIT);
             DrawVirtualObject("the_cube");
         }
-      
+
         glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
         if(tecla_TAB_pressionada == 1){
             //Desenhamos o modelo da lanterna, grudada na tela
@@ -959,6 +1004,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "mapTexture"), 9);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyDayTexture"), 10);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "skyNightTexture"), 11);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "brickTexture"), 12);
     glUseProgram(0);
 }
 
@@ -1792,9 +1838,9 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_LEFT_SHIFT)
     {
         if (action == GLFW_PRESS)
-            speed = 3.0f;
+            speed = 100.0f;
         else if (action == GLFW_RELEASE)
-            speed = 1.0f;
+            speed = 50.0f;
     }
 
     if (key == GLFW_KEY_E)

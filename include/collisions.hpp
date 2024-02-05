@@ -27,6 +27,6 @@
 #include "structs.hpp"
 
 void checkCollisionWithWalls(glm::vec4& player_position, glm::vec4& move_direction, std::vector<Wall>& walls);
-void checkCollisionWithBunnies(glm::vec4& player_position, std::vector<Bunny>& bunnies, int& score);
+bool checkCollisionWithBunnies(glm::vec4& player_position, std::vector<Bunny>& bunnies, int& score);
 
 #endif // COLLISIONS_HPP

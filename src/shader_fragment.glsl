@@ -30,6 +30,8 @@ uniform mat4 projection;
 #define GUN         10
 #define MAP         11
 #define SKY         12
+#define CUBEXY_FIM  13
+#define CUBEYZ_FIM  14
 
 uniform int object_id;
 
@@ -60,6 +62,7 @@ uniform sampler2D gun2Texture;
 uniform sampler2D mapTexture;
 uniform sampler2D skyDayTexture;
 uniform sampler2D skyNightTexture;
+uniform sampler2D brickTexture;
 
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
@@ -94,20 +97,19 @@ void main()
     float sin_pos_light = sin(M_PI/segundosCicloDia*ligth_pos);
 
     // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
-    //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0)); //Luz fixa
-    //vec4 l = normalize(camera_position - p); //Camera é a luz
-    vec4 lFlash = normalize(pontoL - p)/(max(pow(length(pontoL-p), 2),1));    //Luz Spotlight
+    //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0));    //Luz fixa
+    //vec4 l = normalize(camera_position - p);      //Camera é a luz
+    vec4 lFlash = normalize(pontoL - p)/(max(pow(length(pontoL-p), 2),1));      //Luz Spotlight
     vec4 lTimeSun = normalize(vec4(-cos_pos_light, sin_pos_light, 0.0, 0.0));   //Luz sol
-    vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));  //Luz lua
+    vec4 lTimeMoon = normalize(vec4(cos_pos_light, -sin_pos_light, 0.0,0.0));   //Luz lua
 
     // Vetor que define o sentido da câmera em relação ao ponto atual.
     vec4 v = normalize(camera_position - p);
 
-
     // Vetor que define o sentido da reflexão especular ideal.
-    vec4 rFlash = -lFlash + 2*n*dot(n, lFlash); // PREENCHA AQUI o vetor de reflexão especular ideal
-    vec4 rTimeSun = -lTimeSun + 2*n*dot(n, lTimeSun); // PREENCHA AQUI o vetor de reflexão especular ideal
-    vec4 rTimeMoon = -lTimeMoon + 2*n*dot(n, lTimeMoon); // PREENCHA AQUI o vetor de reflexão especular ideal
+    //vec4 rFlash = -lFlash + 2*n*dot(n, lFlash); //Vetor de reflexão especular ideal da Lanterna
+    //vec4 rTimeSun = -lTimeSun + 2*n*dot(n, lTimeSun); //Vetor de reflexão especular ideal do Sol
+    //vec4 rTimeMoon = -lTimeMoon + 2*n*dot(n, lTimeMoon); //Vetor de reflexão especular ideal da Lua
 
     // Parâmetros que definem as propriedades espectrais da superfície
     vec3 Kd; // Refletância difusa
@@ -232,7 +234,7 @@ void main()
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
     }
-    else if (object_id == CUBEXY){
+    else if (object_id == CUBEXY || object_id == CUBEXY_FIM){
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
 
@@ -245,12 +247,14 @@ void main()
         U = (position_model.x - minx)/(maxx - minx);
         V = (position_model.y - miny)/(maxy - miny);
 
-        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Kd = object_id == CUBEXY ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
+
+        //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
     }
-    else if(object_id == CUBEYZ)
+    else if(object_id == CUBEYZ || object_id == CUBEYZ_FIM)
     {
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
@@ -264,7 +268,9 @@ void main()
         U = (position_model.z - minz)/(maxz - minz);
         V = (position_model.y - miny)/(maxy - miny);
 
-        Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Kd = object_id == CUBEYZ ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
+
+        //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
         q = 20.0;
@@ -296,10 +302,12 @@ void main()
         V = (phi   + M_PI_2) / M_PI;
 
         Kd = vec3(0.0, 0.0, 0.0);
+
                 //Textura do Dia                      Só aparece de dia e bem pouco à noite
         Ka =  texture(skyDayTexture, vec2(U,V)).rgb * max(0.002, sin_pos_light)*2
             + texture(skyNightTexture, vec2(U,V)).rgb * max(0.000, -sin_pos_light) * (1-abs(cos_pos_light))*0.5 ;
                 //Textura da Noite (estrelas)              Só aparece de noite         Aparece gradualmente
+
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
 
@@ -317,53 +325,57 @@ void main()
 
     // Espectro da luz ambiente
     vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
+    vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
+    vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
-    vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_sun = Kd*I_sun*max(0, dot(n, lTimeSun)); // PREENCHA AQUI o termo difuso de Lambert
-    vec3 lambert_diffuse_term_time_moon = Kd*I_moon*max(0, dot(n, lTimeMoon)); // PREENCHA AQUI o termo difuso de Lambert
+    vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); //Termo difuso de Lambert da Lanterna
+    vec3 lambert_diffuse_term_time_sun = Kd*I_sun*max(0, dot(n, lTimeSun)); //Termo difuso de Lambert do Sol
+    vec3 lambert_diffuse_term_time_moon = Kd*I_moon*max(0, dot(n, lTimeMoon)); //Termo difuso de Lambert da Lua
 
     // Termo ambiente
     vec3 ambient_term = Ka*Ia;
+    vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
+    vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
+
+    //half-vector: meio do caminho entre v e l - Blinn-Phong
+    vec4 hFlash = normalize(v + lFlash);
+    vec4 hTimeSun = normalize(v + lTimeSun);
+    vec4 hTimeMoon = normalize(v + lTimeMoon);
 
     // Termo especular utilizando o modelo de iluminação de Phong
-    vec3 phong_specular_term_flash  = Ks*I_flash*pow(max(0, dot(rFlash,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_sun  = Ks*I_sun*pow(max(0, dot(rTimeSun,v)), q); // PREENCHA AQUI o termo especular de Phong
-    vec3 phong_specular_term_time_moon  = Ks*I_moon*pow(max(0, dot(rTimeMoon,v)), q); // PREENCHA AQUI o termo especular de Phong
+    vec3 blinn_phong_specular_term_flash  = Ks * I_flash * pow(max(0, dot(n, hFlash)), q); //Termo especular de Phong da Lanterna
+    vec3 blinn_phong_specular_term_time_sun  = Ks * I_sun * pow(max(0, dot(n, hTimeSun)), q); //Termo especular de Phong do Sol
+    vec3 blinn_phong_specular_term_time_moon  = Ks * I_moon * pow(max(0, dot(n, hTimeMoon)), q); //Termo especular de Phong da Lua
 
-    // NOTE: Se você quiser fazer o rendering de objetos transparentes, é
-    // necessário:
-    // 1) Habilitar a operação de "blending" de OpenGL logo antes de realizar o
-    //    desenho dos objetos transparentes, com os comandos abaixo no código C++:
-    //      glEnable(GL_BLEND);
-    //      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    // 2) Realizar o desenho de todos objetos transparentes *após* ter desenhado
-    //    todos os objetos opacos; e
-    // 3) Realizar o desenho de objetos transparentes ordenados de acordo com
-    //    suas distâncias para a câmera (desenhando primeiro objetos
-    //    transparentes que estão mais longe da câmera).
-    // Alpha default = 1 = 100% opaco = 0% transparente
     color.a = 1;
 
     vec4 color_flash = vec4(0.0, 0.0, 0.0, 1.0);
     vec4 color_time_sun = vec4(0.0, 0.0, 0.0, 1.0);
     vec4 color_time_moon = vec4(0.0, 0.0, 0.0, 1.0);
 
+
     if (flashlight_on == 1 && object_id != FLASHLIGHT){
         float cos_angle = dot(normalize(p - pontoL), normalize(direcao));
         if(cos_angle >= abertura){
-            color_flash.rgb = (lambert_diffuse_term_flash + phong_specular_term_flash)*(pow(cos_angle, 5));
+            color_flash.rgb = (lambert_diffuse_term_flash + blinn_phong_specular_term_flash)*(pow(cos_angle, 5));
         }
     }
 
     if(sin_pos_light > 0.0){
-        color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + phong_specular_term_time_sun;
+        color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + blinn_phong_specular_term_time_sun;
     }
     if(sin_pos_light < 0.0){
-        color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + phong_specular_term_time_moon;
+        color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + blinn_phong_specular_term_time_moon;
     }
 
-    color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
+
+    if(object_id == BUNNY) // Coelho é difuso sem lantera e especular com lanterna
+        color.rgb = 2*color_flash.rgb + sin_pos_light*lambert_diffuse_term_time_sun + 0.05*-sin_pos_light*lambert_diffuse_term_time_moon + ambient_term_time;
+    else
+        color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term_time;
+
+    //color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
     if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY){
         color.rgb = Ka*vec3(1.0, 1.0, 1.0);
