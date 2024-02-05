@@ -55,8 +55,6 @@
 #include "collisions.hpp"
 
 // Tamanho da tela
-#define SCREEN_WIDTH    800
-#define SCREEN_HEIGHT   700
 #define SPHERE      0
 #define BUNNY       1
 #define PLANE       2
@@ -479,11 +477,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::cout << walls.size() << std::endl;
-    for(auto wall : walls){
-        //std::cout << wall.position.x << " " << wall.position.y << " " << wall.position.z << std::endl;
-    }
-
     std::vector<glm::vec3> bezierControlPoints, bezierControlPoints2;
     bezierControlPoints.push_back(glm::vec3(-19.0f, 0.0f, 0.0f));
     bezierControlPoints.push_back(glm::vec3(-19.0f , 25.0f, 0.0f));
@@ -499,38 +492,6 @@ int main(int argc, char* argv[])
     float t_bezier_delta;
     glm::vec3 bezierPoint;
     bool secondBezier = false;
-
-    Wall wall;
-    for(int i=0; i<21; i++){
-        for(int j=0; j<26; j++){
-            if(paredes[i][j] == XYWALL){
-                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
-                wall.dir = CUBEXY;
-                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
-                             Matrix_Scale(1.0f, 1.0f, 0.01f);
-            }
-            else if(paredes[i][j] == YZWALL){
-                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
-                wall.dir = CUBEYZ;
-                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
-                             Matrix_Scale(0.01f, 1.0f, 1.0f);
-            }
-            else if(paredes[i][j] == XY_YZWALL){
-                wall.position = glm::vec3(j-13.5, -0.5f, i - 19.5);
-                wall.dir = CUBEXY;
-                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
-                             Matrix_Scale(1.0f, 1.0f, 0.01f);
-                walls.push_back(wall);
-
-                wall.position = glm::vec3(j-12.5, -0.5f, i - 19.5);
-                wall.dir = CUBEYZ;
-                wall.model = Matrix_Translate(wall.position.x, wall.position.y, wall.position.z)*
-                             Matrix_Scale(0.01f, 1.0f, 1.0f);
-            }
-            if (paredes[i][j] != 0)
-                walls.push_back(wall);
-        }
-    }
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
