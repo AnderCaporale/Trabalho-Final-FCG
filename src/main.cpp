@@ -198,6 +198,7 @@ bool tecla_D_pressionada = false;
 bool tecla_R_pressionada = false;
 bool tecla_F_pressionada = false;
 bool tecla_C_pressionada = false;
+bool tecla_C_pressionada_backup = tecla_C_pressionada;
 bool tecla_L_pressionada = false;
 bool tecla_M_pressionada = false;
 bool tecla_TAB_pressionada = false;
@@ -206,7 +207,7 @@ bool interpolation = false;
 
 float speed = 2.0f; // Velocidade da câmera
 glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec4 player_position = glm::vec4(0.0f, -1.0f, 0.0f, 0.0f);
+glm::vec4 player_position = glm::vec4(0.0f, -0.495f, 0.0f, 1.0f);
 glm::vec4 camera_position_c  = glm::vec4(0.0f, 0.0f, 0.0f, 0.0f);
 
 std::vector<Wall> walls = std::vector<Wall>();
@@ -268,6 +269,7 @@ GLFWwindow* window;
 float posXFree , posZFree, posXLookAt , posZLookAt ;
 glm::vec4 camera_view_vector_backup;
 glm::vec4 move_direction_backup;
+glm::vec4 player_position_backup = player_position;
 
 int main(int argc, char* argv[])
 {
@@ -443,7 +445,6 @@ int main(int argc, char* argv[])
 
     // Abaixo definimos as varáveis que efetivamente definem a câmera virtual.
     // Veja slides 195-227 e 229-234 do documento Aula_08_Sistemas_de_Coordenadas.pdf.
-    glm::vec4 player_position = glm::vec4(0, y-0.495, 0, 1.0f);
     camera_position_c = player_position;
     camera_position_c.y += 0.5f;
     glm::vec4 camera_lookat_l    = glm::vec4(0.0f,0.0f,0.0f,1.0f); // Ponto "l", para onde a câmera (look-at) estará sempre olhando
@@ -590,7 +591,8 @@ int main(int argc, char* argv[])
             camera_view_vector = normalize(glm::vec4(x, y, z, 0.0f)); // Vetor "view", sentido para onde a câmera está virada
             //glm::vec4 camera_up_vector   = glm::vec4(0.0f,1.0f,0.0f,0.0f); // Vetor "up" fixado para apontar para o "céu" (eito Y global)
             glm::vec4 front_vec = camera_view_vector;
-            front_vec.y = 0.0f;
+            if(!tecla_C_pressionada)
+                front_vec.y = 0.0f;
             front_vec = normalize(front_vec);
             glm::vec4 side_vec = crossproduct(front_vec, camera_up_vector);
             glm::vec4 player_new_position = player_position + front_vec * g_PlayerSpeed.x
@@ -598,7 +600,11 @@ int main(int argc, char* argv[])
                                                             + camera_up_vector * g_PlayerSpeed.y;
             glm::vec4 move_direction = player_new_position - player_position;
 
-            //checkCollisionWithWalls(player_position, move_direction, walls);
+            if(!tecla_C_pressionada){
+                checkCollisionWithWalls(player_position, move_direction, walls);
+            }
+
+            tecla_C_pressionada_backup = tecla_C_pressionada;
 
             player_position += move_direction;
             camera_position_c = player_position;
@@ -1895,14 +1901,12 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     if (key == GLFW_KEY_C && action == GLFW_PRESS && (mod & GLFW_MOD_SHIFT))
     {
         if(!tecla_C_pressionada){
-            posXFree = camera_position_c.x;
-            posZFree = camera_position_c.z;
+            player_position_backup = player_position;
             g_CameraPhi_backup_Free = g_CameraPhi;
             g_CameraTheta_backup_Free = g_CameraTheta;
             //move_direction_backup
         } else{
-            camera_position_c.x = posXFree;
-            camera_position_c.z = posZFree;
+            player_position = player_position_backup;
             g_CameraPhi = g_CameraPhi_backup_Free;
             g_CameraTheta = g_CameraTheta_backup_Free;
         }

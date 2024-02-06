@@ -149,7 +149,7 @@ void main()
         Kd = texture(grassTexture, vec2(U,V)).rgb;
         Ks = vec3(0.0, 0.0, 0.0);
         Ka = Kd/5;
-        q = 80.0;
+        q = 256.0;
 
     } else if ( object_id == PATH ){
         // PREENCHA AQUI
@@ -182,7 +182,7 @@ void main()
         Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 80.0;
+        q = 256.0;
 
     } else if ( object_id == GUN ){
         float minx = bbox_min.x;
@@ -200,7 +200,7 @@ void main()
         Kd = texture(swordTexture, vec2(texcoords.x,texcoords.y)).rgb;
         Ks = texture(swordTextureS, vec2(texcoords.x,texcoords.y)).rgb;
         Ka = Kd/2;
-        q = 80.0;
+        q = 256.0;
     } else if ( object_id == SUN){
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
@@ -248,7 +248,7 @@ void main()
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 80.0;
+        q = 256.0;
     }
     else if(object_id == CUBEYZ || object_id == CUBEYZ_FIM)
     {
@@ -269,7 +269,7 @@ void main()
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 80.0;
+        q = 256.0;
     } else if(object_id == MAP){
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
@@ -286,7 +286,7 @@ void main()
         Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
         Ks = Kd;
         Ka = Kd/2;
-        q = 80.0;
+        q = 256.0;
     }else if(object_id == SKY){
 
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
