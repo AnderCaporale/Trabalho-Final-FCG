@@ -367,7 +367,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/objs/sword/texture.jpg");
     LoadTextureImage("../../data/textures/gun1Texture.jpg");
     LoadTextureImage("../../data/textures/gun2Texture.jpg");
-    LoadTextureImage("../../data/textures/mapTexture.png");
+    LoadTextureImage("../../data/textures/mapTexture2.png");
     LoadTextureImage("../../data/textures/sky/skyDayTexture.jpg");
     LoadTextureImage("../../data/textures/sky/skyNightTexture.jpg");
     LoadTextureImage("../../data/textures/brickTexture.jpg");
@@ -563,6 +563,7 @@ int main(int argc, char* argv[])
     bool colisionCow = false;
     float timeBackup=0;
 
+    float minotauroY = -0.5;
 
     // Ficamos em um loop infinito, renderizando, até que o usuário feche a janela
     while (!glfwWindowShouldClose(window))
@@ -614,20 +615,25 @@ int main(int argc, char* argv[])
                 bunny_rotation_angle = 0.157 * score;
             }
 
+            //Se ta com a espada equipada e colidiu com o minotauro
             if (!tecla_TAB_pressionada && checkCollisionWithCow(player_position, glm::vec3(0.0f, 0.1f, -24.0f))){
-                if (!colisionCow){
+                if (!colisionCow){ //Salva o tempo que colidiu
                     timeBackup = (int)seconds;
                 }
+
                 colisionCow = true;
             }
 
             if (colisionCow ){
                 segundosCicloDia = 30 / ((seconds-timeBackup)*2);
+                std::cout << segundosCicloDia << " - " << seconds << " - " << (seconds-timeBackup) << "\n";
 
                 //TODO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
 
+                //glUniform1f(g_light_pos_uniform, seconds * (seconds-timeBackup));
                 if (segundosCicloDia < 1){
-                    exit(0);
+                    colisionCow = false;
+                    segundosCicloDia = 30;
                 }
             }
 
@@ -781,22 +787,27 @@ int main(int argc, char* argv[])
         }
 
         if (!colisionCow){
-            // Desenhamos o modelo da vaca
-            model = Matrix_Identity();
-            model = Matrix_Identity() * Matrix_Translate(0.0f, -0.5f, -24.0f)
-                    * Matrix_Rotate_X(-M_PI/2)
-                    * Matrix_Scale(0.01f, 0.01f, 0.01f);
-            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
-            glUniform1i(g_object_id_uniform, COW);
-            DrawVirtualObject("object_1");
+            minotauroY = -0.5;
+        } else{
+            minotauroY += 0.1;
         }
+
+        // Desenhamos o modelo do minotauro
+        model = Matrix_Identity();
+        model = Matrix_Identity() * Matrix_Translate(0.0f, minotauroY, -24.0f)
+                * Matrix_Rotate_X(-M_PI/2)
+                * Matrix_Scale(0.01f, 0.01f, 0.01f);
+        glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+        glUniform1i(g_object_id_uniform, COW);
+        DrawVirtualObject("object_1");
+
 
         //Desenhamos o mapa do labirinto, grudada na tela
         if(tecla_M_pressionada){
             glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
             model = Matrix_Identity();
-            model = Matrix_Translate(-0.04, -0.055, -0.1)
-                    * Matrix_Scale(0.05f, 0.05f, 0.001f)
+            model = Matrix_Translate(-0.07, -0.055, -0.1)
+                    * Matrix_Scale(0.08f, 0.05f, 0.001f)
                     * Matrix_Rotate_Y(M_PI/2);
 
             glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
@@ -838,9 +849,6 @@ int main(int argc, char* argv[])
             glUniform1i(g_flashlight_on_uniform, 0);
         }
 
-        //float current_time = (float)glfwGetTime();
-        //delta_t = current_time - prev_time;
-        //prev_time = current_time;
 
         // Realiza movimentação do jogador
         if (tecla_W_pressionada)
@@ -2020,8 +2028,8 @@ void ErrorCallback(int error, const char* description)
 // g_AngleX, g_AngleY, e g_AngleZ.
 void TextRendering_ShowEulerAngles(GLFWwindow* window)
 {
-    if ( !g_ShowInfoText )
-        return;
+    //if ( !g_ShowInfoText )
+     //   return;
 
     float pad = TextRendering_LineHeight(window);
 
@@ -2034,53 +2042,53 @@ void TextRendering_ShowEulerAngles(GLFWwindow* window)
 // Escrevemos na tela qual matriz de projeção está sendo utilizada.
 void TextRendering_ShowProjection(GLFWwindow* window)
 {
-    if ( !g_ShowInfoText )
-        return;
+    //if ( !g_ShowInfoText )
+      //  return;
 
     float lineheight = TextRendering_LineHeight(window);
     float charwidth = TextRendering_CharWidth(window);
 
     //if ( g_UsePerspectiveProjection )
-        TextRendering_PrintString(window, "Perspective", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
+        TextRendering_PrintString(window, "Perspective", 1.0f-13*charwidth, -1.0f+2*lineheight/5, 1.0f);
     //else
         //TextRendering_PrintString(window, "Orthographic", 1.0f-13*charwidth, -1.0f+2*lineheight/10, 1.0f);
 }
 
-// Escrevemos na tela o número de quadros renderizados por segundo (frames per
-// second).
-// void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
-// {
-//     if ( !g_ShowInfoText )
-//         return;
+void TextRendering_ShowFramesPerSecond(GLFWwindow* window)
+{
+    //if ( !g_ShowInfoText )
+    //    return;
 
-//     // Variáveis estáticas (static) mantém seus valores entre chamadas
-//     // subsequentes da função!
-//     static float old_seconds = (float)glfwGetTime();
-//     static int   ellapsed_frames = 0;
-//     static char  buffer[20] = "?? fps";
-//     static int   numchars = 7;
+    // Variáveis estáticas (static) mantém seus valores entre chamadas
+    // subsequentes da função!
+    static float old_seconds = (float)glfwGetTime();
+    static int   ellapsed_frames = 0;
+    static char  buffer[20] = "?? fps";
+    static int   numchars = 7;
 
-//     ellapsed_frames += 1;
+    ellapsed_frames += 1;
 
-//     // Recuperamos o número de segundos que passou desde a execução do programa
-//     float seconds = (float)glfwGetTime();
+    // Recuperamos o número de segundos que passou desde a execução do programa
+    float seconds = (float)glfwGetTime();
 
-//     // Número de segundos desde o último cálculo do fps
-//     float ellapsed_seconds = seconds - old_seconds;
+    // Número de segundos desde o último cálculo do fps
+    float ellapsed_seconds = seconds - old_seconds;
 
-//     if ( ellapsed_seconds > 1.0f )
-//     {
-//         numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
+    if ( ellapsed_seconds > 1.0f )
+    {
+        numchars = snprintf(buffer, 20, "%.2f fps", ellapsed_frames / ellapsed_seconds);
 
-//         old_seconds = seconds;
-//         ellapsed_frames = 0;
-//     }
+        old_seconds = seconds;
+        ellapsed_frames = 0;
+    }
 
-//     float lineheight = TextRendering_LineHeight(window);
-//     float charwidth = TextRendering_CharWidth(window);
+    float lineheight = TextRendering_LineHeight(window);
+    float charwidth = TextRendering_CharWidth(window);
 
-//     TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
-// }
+    TextRendering_PrintString(window, buffer, 1.0f-(numchars + 1)*charwidth, 1.0f-lineheight, 1.0f);
+}
+
+
 
 // Função para debugging: imprime no terminal todas informações de um modelo
 // geométrico carregado de um arquivo ".obj".

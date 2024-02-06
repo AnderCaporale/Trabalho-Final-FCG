@@ -204,9 +204,9 @@ bool checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &b
 
 bool checkCollisionWithCow(glm::vec4 &player_position, glm::vec3 positionCow)
 {
-    if ((player_position.x - positionCow.x < 1) &&
-        (player_position.y - positionCow.y < 1) &&
-        (player_position.z - positionCow.z < 1))
+    if ((abs(player_position.x - positionCow.x) < 1) &&
+        (abs(player_position.y - positionCow.y) < 1) &&
+        (abs(player_position.z - positionCow.z) < 1))
         {
             return true;
         }

@@ -926,7 +926,7 @@
 	<inttypes.h>
 	<stdint.h>
 
-1706831298 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\textrendering.cpp
+1707196014 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\textrendering.cpp
 	<string>
 	<glad/glad.h>
 	<GLFW/glfw3.h>
@@ -1518,7 +1518,7 @@
 	<stddef.h>
 	<stdint.h>
 
-1707100302 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\main.cpp
+1707196044 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\main.cpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -2775,7 +2775,7 @@
 1705845209 source:c:\users\lucas\onedrive\ufrgs\fcg\trabalho-final-fcg\src\tiny_obj_loader.cpp
 	"tiny_obj_loader.h"
 
-1707100138 c:\users\ander\desktop\fcg\vez2\trabalho final\include\collisions.hpp
+1707189532 c:\users\ander\desktop\fcg\vez2\trabalho final\include\collisions.hpp
 	<cmath>
 	<cstdio>
 	<cstdlib>
@@ -2794,7 +2794,7 @@
 	<glm/vec4.hpp>
 	"structs.hpp"
 
-1707100173 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\collisions.cpp
+1707191277 source:c:\users\ander\desktop\fcg\vez2\trabalho final\src\collisions.cpp
 	"collisions.hpp"
 	"structs.hpp"
 
