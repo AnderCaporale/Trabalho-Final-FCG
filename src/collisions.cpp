@@ -185,7 +185,7 @@ void checkCollisionWithWalls(glm::vec4& player_position, glm::vec4& move_directi
 
 bool checkCollisionWithBunnies(glm::vec4 &player_position, std::vector<Bunny> &bunnies, int &score, bool tecla_TAB_pressionada)
 {
-    for (int i = 0; i < bunnies.size(); i++)
+    for (size_t i = 0; i < bunnies.size(); i++)
     {
         //Check if player is inside a circle of radius 0.3f around the bunny
         if (!tecla_TAB_pressionada &&

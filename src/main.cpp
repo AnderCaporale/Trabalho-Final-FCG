@@ -174,20 +174,22 @@ GLint g_projection_uniform;
 GLint g_object_id_uniform;
 GLint g_flashlight_on_uniform;
 
-GLfloat g_ligth_pos_uniform;
+GLfloat g_light_pos_uniform;
 GLint g_segundos_ciclo_dia;
 
-GLfloat flashligth_pos_x;
-GLfloat flashligth_pos_y;
-GLfloat flashligth_pos_z;
+GLfloat flashlight_pos_x;
+GLfloat flashlight_pos_y;
+GLfloat flashlight_pos_z;
 
-GLfloat flashligth_dir_x;
-GLfloat flashligth_dir_y;
-GLfloat flashligth_dir_z;
+GLfloat flashlight_dir_x;
+GLfloat flashlight_dir_y;
+GLfloat flashlight_dir_z;
 
 GLuint g_NumLoadedTextures = 0;
 GLint g_bbox_min_uniform;
 GLint g_bbox_max_uniform;
+
+GLint g_interpolation_uniform;
 
 bool tecla_W_pressionada = false;
 bool tecla_A_pressionada = false;
@@ -199,6 +201,8 @@ bool tecla_C_pressionada = false;
 bool tecla_L_pressionada = false;
 bool tecla_M_pressionada = false;
 bool tecla_TAB_pressionada = false;
+
+bool interpolation = false;
 
 float speed = 2.0f; // Velocidade da câmera
 glm::vec3 g_PlayerSpeed = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -416,7 +420,7 @@ int main(int argc, char* argv[])
     }
 
     // Inicializamos o código para renderização de texto.
-    TextRendering_Init();
+    // TextRendering_Init();
 
     GLint render_as_black_uniform = glGetUniformLocation(g_GpuProgramID, "render_as_black"); // Variável booleana em shader_vertex.glsl
 
@@ -505,7 +509,6 @@ int main(int argc, char* argv[])
         }
     }
 
-    Wall wallFim;
     for(int i=0; i<7; i++){
         for(int j=0; j<26; j++){
             if(paredesFim[i][j] == XYWALL){
@@ -557,7 +560,6 @@ int main(int argc, char* argv[])
 
     float segundosCicloDia = 30;
     bool colisionCow = false;
-    int tempo = 0;
     float timeBackup=0;
 
 
@@ -566,7 +568,7 @@ int main(int argc, char* argv[])
     {
         //Enviamos os segundos, que controlará a posição da luz
         float seconds = glfwGetTime();
-        glUniform1f(g_ligth_pos_uniform, seconds);
+        glUniform1f(g_light_pos_uniform, seconds);
         glUniform1f(g_segundos_ciclo_dia, segundosCicloDia);
 
         // Computação da posição da câmera
@@ -616,9 +618,7 @@ int main(int argc, char* argv[])
             if (colisionCow ){
                 segundosCicloDia = 30 / ((seconds-timeBackup)*2);
 
-
-                //TO DO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
-
+                //TODO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
 
                 if (segundosCicloDia < 1){
                     exit(0);
@@ -632,13 +632,13 @@ int main(int argc, char* argv[])
         glm::mat4 view = Matrix_Camera_View(camera_position_c, camera_view_vector, camera_up_vector);
 
 
-        glUniform1f(flashligth_pos_x, camera_position_c[0]);
-        glUniform1f(flashligth_pos_y, camera_position_c[1]);
-        glUniform1f(flashligth_pos_z, camera_position_c[2]);
+        glUniform1f(flashlight_pos_x, camera_position_c[0]);
+        glUniform1f(flashlight_pos_y, camera_position_c[1]);
+        glUniform1f(flashlight_pos_z, camera_position_c[2]);
 
-        glUniform1f(flashligth_dir_x, camera_view_vector[0]);
-        glUniform1f(flashligth_dir_y, camera_view_vector[1]);
-        glUniform1f(flashligth_dir_z, camera_view_vector[2]);
+        glUniform1f(flashlight_dir_x, camera_view_vector[0]);
+        glUniform1f(flashlight_dir_y, camera_view_vector[1]);
+        glUniform1f(flashlight_dir_z, camera_view_vector[2]);
 
         // Aqui executamos as operações de renderização
 
@@ -1013,20 +1013,22 @@ void LoadShadersFromFiles()
     g_projection_uniform = glGetUniformLocation(g_GpuProgramID, "projection"); // Variável da matriz "projection" em shader_vertex.glsl
     g_object_id_uniform  = glGetUniformLocation(g_GpuProgramID, "object_id"); // Variável "object_id" em shader_fragment.glsl
 
-    g_ligth_pos_uniform = glGetUniformLocation(g_GpuProgramID, "ligth_pos");
+    g_light_pos_uniform = glGetUniformLocation(g_GpuProgramID, "light_pos");
     g_segundos_ciclo_dia = glGetUniformLocation(g_GpuProgramID, "segundosCicloDia");
     g_flashlight_on_uniform = glGetUniformLocation(g_GpuProgramID, "flashlight_on");
 
-    flashligth_pos_x = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_x");
-    flashligth_pos_y = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_y");
-    flashligth_pos_z = glGetUniformLocation(g_GpuProgramID, "flashligth_pos_z");
+    flashlight_pos_x = glGetUniformLocation(g_GpuProgramID, "flashlight_pos_x");
+    flashlight_pos_y = glGetUniformLocation(g_GpuProgramID, "flashlight_pos_y");
+    flashlight_pos_z = glGetUniformLocation(g_GpuProgramID, "flashlight_pos_z");
 
-    flashligth_dir_x = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_x");
-    flashligth_dir_y = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_y");
-    flashligth_dir_z = glGetUniformLocation(g_GpuProgramID, "flashligth_dir_z");
+    flashlight_dir_x = glGetUniformLocation(g_GpuProgramID, "flashlight_dir_x");
+    flashlight_dir_y = glGetUniformLocation(g_GpuProgramID, "flashlight_dir_y");
+    flashlight_dir_z = glGetUniformLocation(g_GpuProgramID, "flashlight_dir_z");
 
     g_bbox_min_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_min");
     g_bbox_max_uniform   = glGetUniformLocation(g_GpuProgramID, "bbox_max");
+
+    g_interpolation_uniform = glGetUniformLocation(g_GpuProgramID, "interpolation");
 
     // Variáveis em "shader_fragment.glsl" para acesso das imagens de textura
     glUseProgram(g_GpuProgramID);
@@ -1928,6 +1930,18 @@ void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mod)
     {
         tecla_TAB_pressionada = !tecla_TAB_pressionada;
     }
+
+    if (key == GLFW_KEY_Q && action == GLFW_PRESS && (mod & GLFW_MOD_SHIFT))
+    {
+        if(interpolation){
+            glUniform1i(g_interpolation_uniform, 0);
+            interpolation = false;
+        }else{
+            glUniform1i(g_interpolation_uniform, 1);
+            interpolation = true;
+        }
+    }
+
 }
 
 // Definimos o callback para impressão de erros da GLFW no terminal

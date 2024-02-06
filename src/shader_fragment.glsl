@@ -7,6 +7,7 @@
 in vec4 position_world;
 in vec4 normal;
 in vec4 position_model;
+in vec4 cor_v;
 
 in vec2 texcoords;
 
@@ -37,15 +38,15 @@ uniform int object_id;
 
 uniform int flashlight_on;
 uniform float segundosCicloDia;
-uniform float ligth_pos;
+uniform float light_pos;
 
-uniform float flashligth_pos_x;
-uniform float flashligth_pos_y;
-uniform float flashligth_pos_z;
+uniform float flashlight_pos_x;
+uniform float flashlight_pos_y;
+uniform float flashlight_pos_z;
 
-uniform float flashligth_dir_x;
-uniform float flashligth_dir_y;
-uniform float flashligth_dir_z;
+uniform float flashlight_dir_x;
+uniform float flashlight_dir_y;
+uniform float flashlight_dir_z;
 
 uniform vec4 bbox_min;
 uniform vec4 bbox_max;
@@ -65,6 +66,8 @@ uniform sampler2D skyNightTexture;
 uniform sampler2D brickTexture;
 uniform sampler2D minotaurBodyTexture;
 uniform sampler2D swordTextureS;
+
+uniform int interpolation;
 
 
 // O valor de saída ("out") de um Fragment Shader é a cor final do fragmento.
@@ -88,15 +91,15 @@ void main()
 
     //Spotlight
     vec4 pontoL = vec4(camera_position.x, camera_position.y, camera_position.z, 1.0); //representa o ponto onde está localizada a fonte de luz
-    vec4 direcao = normalize(vec4(flashligth_dir_x, flashligth_dir_y, flashligth_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
+    vec4 direcao = normalize(vec4(flashlight_dir_x, flashlight_dir_y, flashlight_dir_z, 0.0)); //representa o vetor que indica o sentido da iluminação spotlight.
     float abertura = cos(M_PI/12); //12 graus
 
     // Normal do fragmento atual, interpolada pelo rasterizador a partir das
     // normais de cada vértice.
     vec4 n = normalize(normal);
 
-    float cos_pos_light = cos(M_PI/segundosCicloDia*ligth_pos);
-    float sin_pos_light = sin(M_PI/segundosCicloDia*ligth_pos);
+    float cos_pos_light = cos(M_PI/segundosCicloDia*light_pos);
+    float sin_pos_light = sin(M_PI/segundosCicloDia*light_pos);
 
     // Vetor que define o sentido da fonte de luz em relação ao ponto atual.
     //vec4 l = normalize(vec4(1.0,1.0,0.5,0.0));    //Luz fixa
@@ -136,7 +139,7 @@ void main()
         Kd = vec3(0.08, 0.4, 0.8);
         Ks = vec3(0.8 , 0.8, 0.8);
         Ka = Kd/2;
-        q = 32.0;
+        q = 128.0;
     }
     else if ( object_id == PLANE )
     {
@@ -146,7 +149,7 @@ void main()
         Kd = texture(grassTexture, vec2(U,V)).rgb;
         Ks = vec3(0.0, 0.0, 0.0);
         Ka = Kd/5;
-        q = 20.0;
+        q = 80.0;
 
     } else if ( object_id == PATH ){
         // PREENCHA AQUI
@@ -179,7 +182,7 @@ void main()
         Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 20.0;
+        q = 80.0;
 
     } else if ( object_id == GUN ){
         float minx = bbox_min.x;
@@ -197,7 +200,7 @@ void main()
         Kd = texture(swordTexture, vec2(texcoords.x,texcoords.y)).rgb;
         Ks = texture(swordTextureS, vec2(texcoords.x,texcoords.y)).rgb;
         Ka = Kd/2;
-        q = 20.0;
+        q = 80.0;
     } else if ( object_id == SUN){
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
 
@@ -245,7 +248,7 @@ void main()
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 20.0;
+        q = 80.0;
     }
     else if(object_id == CUBEYZ || object_id == CUBEYZ_FIM)
     {
@@ -266,7 +269,7 @@ void main()
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
         Ks = Kd;
         Ka = Kd/2;
-        q = 20.0;
+        q = 80.0;
     } else if(object_id == MAP){
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
@@ -283,7 +286,7 @@ void main()
         Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
         Ks = Kd;
         Ka = Kd/2;
-        q = 20.0;
+        q = 80.0;
     }else if(object_id == SKY){
 
         vec4 bbox_center = (bbox_min + bbox_max) / 2.0;
@@ -318,8 +321,6 @@ void main()
 
     // Espectro da luz ambiente
     vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
-    vec3 Ia_flash = vec3(1, 1, 1); // PREENCHA AQUI o espectro da luz ambiente
-    vec3 Ia_time = vec3(0.01, 0.01, 0.01); // PREENCHA AQUI o espectro da luz ambiente
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); //Termo difuso de Lambert da Lanterna
@@ -328,8 +329,6 @@ void main()
 
     // Termo ambiente
     vec3 ambient_term = Ka*Ia;
-    vec3 ambient_term_flash = Ka*Ia_flash; // PREENCHA AQUI o termo ambiente
-    vec3 ambient_term_time = Ka*Ia_time; // PREENCHA AQUI o termo ambiente
 
     //half-vector: meio do caminho entre v e l - Blinn-Phong
     vec4 hFlash = normalize(v + lFlash);
@@ -351,7 +350,7 @@ void main()
     if (flashlight_on == 1 && object_id != FLASHLIGHT){
         float cos_angle = dot(normalize(p - pontoL), normalize(direcao));
         if(cos_angle >= abertura){
-            color_flash.rgb = (lambert_diffuse_term_flash + blinn_phong_specular_term_flash)*(pow(cos_angle, 5));
+            color_flash.rgb = (lambert_diffuse_term_flash + blinn_phong_specular_term_flash);
         }
     }
 
@@ -362,11 +361,12 @@ void main()
         color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + blinn_phong_specular_term_time_moon;
     }
 
+    color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
     if(object_id == BUNNY) // Coelho é difuso sem lantera e especular com lanterna
-        color.rgb = 2*color_flash.rgb + sin_pos_light*lambert_diffuse_term_time_sun + 0.05*-sin_pos_light*lambert_diffuse_term_time_moon + ambient_term_time;
+        color.rgb = 2*color_flash.rgb + sin_pos_light*lambert_diffuse_term_time_sun + 0.05*-sin_pos_light*lambert_diffuse_term_time_moon + ambient_term;
     else
-        color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term_time;
+        color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term;
 
     //color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
@@ -380,6 +380,10 @@ void main()
         else{
             color.rgb = Ka*vec3(1.0, max(sin_pos_light, 0.7), max(sin_pos_light,0.7));
         }
+    }
+
+    if(interpolation == 1){
+        color = cor_v;
     }
 
     color.rgb = pow(color.rgb, vec3(1.0,1.0,1.0)/2.2);
