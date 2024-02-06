@@ -171,12 +171,24 @@ void main()
         q = 1.0;
     }
     else if ( object_id == BUNNY){
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.08, 0.4, 0.8);
-        Ks = vec3(0.8 , 0.8, 0.8);
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(goldTexture, vec2(U,V)).rgb;
+
+        //Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd/2;
         Ka = Kd/2;
-        q = 32.0;
+        q = 128.0;
     }
     else if ( object_id == PLANE )
     {
@@ -199,7 +211,7 @@ void main()
     } else if ( object_id == COW){
 
         Kd = 5*texture(minotaurBodyTexture, vec2(texcoords.x,texcoords.y)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 2.0;
 
@@ -217,7 +229,7 @@ void main()
         V = (position_model.y - miny)/(maxy - miny);
 
         Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 20.0;
 
@@ -283,7 +295,7 @@ void main()
         Kd = object_id == CUBEXY ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
 
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 20.0;
     }
@@ -304,7 +316,7 @@ void main()
         Kd = object_id == CUBEYZ ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
 
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 20.0;
     } else if(object_id == MAP){
@@ -321,7 +333,7 @@ void main()
         V = (position_model.y - miny)/(maxy - miny);
 
         Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 20.0;
     }else if(object_id == SKY){

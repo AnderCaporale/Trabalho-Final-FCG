@@ -134,12 +134,26 @@ void main()
         q = 1.0;
     }
     else if ( object_id == BUNNY){
-        // PREENCHA AQUI
-        // Propriedades espectrais do coelho
-        Kd = vec3(0.08, 0.4, 0.8);
-        Ks = vec3(0.8 , 0.8, 0.8);
+        
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = texture(goldTexture, vec2(U,V)).rgb;
+
+        //Kd = texture(wallTexture, vec2(U,V)).rgb;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 128.0;
+
     }
     else if ( object_id == PLANE )
     {
@@ -162,7 +176,7 @@ void main()
     } else if ( object_id == COW){
 
         Kd = 5*texture(minotaurBodyTexture, vec2(texcoords.x,texcoords.y)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 2.0;
 
@@ -180,7 +194,7 @@ void main()
         V = (position_model.y - miny)/(maxy - miny);
 
         Kd = texture(gun1Texture, vec2(U,V)).rgb + texture(gun2Texture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 256.0;
 
@@ -246,7 +260,7 @@ void main()
         Kd = object_id == CUBEXY ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
 
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 256.0;
     }
@@ -267,7 +281,7 @@ void main()
         Kd = object_id == CUBEYZ ? texture(wallTexture, vec2(U,V)).rgb : texture(brickTexture, vec2(U,V)).rgb;
 
         //Kd = texture(wallTexture, vec2(U,V)).rgb;
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 256.0;
     } else if(object_id == MAP){
@@ -284,7 +298,7 @@ void main()
         V = (position_model.y - miny)/(maxy - miny);
 
         Kd = 2*texture(mapTexture, vec2(U,V)).rgb * max(0.001, sin_pos_light);
-        Ks = Kd;
+        Ks = Kd/2;
         Ka = Kd/2;
         q = 256.0;
     }else if(object_id == SKY){
@@ -317,10 +331,10 @@ void main()
     // Espectro da fonte de iluminação
     vec3 I_flash = vec3(1.0, 1.0, 1.0);
     vec3 I_sun = vec3(1.0, 0.95, 0.8);
-    vec3 I_moon = vec3(0.2, 0.2, 0.5);
+    vec3 I_moon = vec3(0.4, 0.4, 0.7);
 
     // Espectro da luz ambiente
-    vec3 Ia = vec3(0.5, 0.5, 0.5)*max(0.1, sin_pos_light);
+    vec3 Ia = vec3(0.7, 0.7, 0.7)*max(0.1, sin_pos_light);
 
     // Termo difuso utilizando a lei dos cossenos de Lambert
     vec3 lambert_diffuse_term_flash = Kd*I_flash*max(0, dot(n, lFlash)); //Termo difuso de Lambert da Lanterna
@@ -358,7 +372,7 @@ void main()
         color_time_sun.rgb = sin_pos_light*lambert_diffuse_term_time_sun + blinn_phong_specular_term_time_sun;
     }
     if(sin_pos_light < 0.0){
-        color_time_moon.rgb = - sin_pos_light*lambert_diffuse_term_time_moon + blinn_phong_specular_term_time_moon;
+        color_time_moon.rgb = -sin_pos_light*lambert_diffuse_term_time_moon + blinn_phong_specular_term_time_moon;
     }
 
     color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
@@ -368,7 +382,6 @@ void main()
     else
         color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term;
 
-    //color.rgb = color_flash.rgb + color_time_sun.rgb + color_time_moon.rgb + ambient_term;
 
     if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY){
         color.rgb = Ka*vec3(1.0, 1.0, 1.0);
