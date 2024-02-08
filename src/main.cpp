@@ -70,6 +70,8 @@
 #define SKY         12
 #define CUBEXY_FIM  13
 #define CUBEYZ_FIM  14
+#define MSG_FIM     15
+
 
 #define XYWALL      1
 #define YZWALL      2
@@ -120,7 +122,9 @@ void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 void CursorPosCallback(GLFWwindow* window, double xpos, double ypos);
 void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
+//Funções Implementadas
 glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float time);
+void gerarCoelhos();
 
 // Abaixo definimos variáveis globais utilizadas em várias funções do código.
 
@@ -373,7 +377,7 @@ int main(int argc, char* argv[])
     LoadTextureImage("../../data/textures/brickTexture.jpg");
     LoadTextureImage("../../data/objs/minotaur/RGB_98e9108b7b964e7aaf6a269fd9188339_ms04_01_Minotaur_1.png");
     LoadTextureImage("../../data/objs/sword/texture_S.jpg");
-    //LoadTextureImage("../../data/objs/sword/texture3.jpg");
+    LoadTextureImage("../../data/textures/MsgFimTexture2.png");
 
     // Construímos a representação de objetos geométricos através de malhas de triângulos
     ObjModel spheremodel("../../data/objs/sphere.obj");
@@ -465,18 +469,21 @@ int main(int argc, char* argv[])
     float delta_t;
     glm::mat4 model = Matrix_Identity();
 
-    int posCoelhoX[10], posCoelhoZ[10];
+    /*Coordenadas coelhos[10];
 
     for(int i=0 ; i<10 ; i++){
-        posCoelhoX[i] = rand()%24 + 1;
-        posCoelhoZ[i] = rand()%17 + 2;
+        coelhos[i].x = rand()%24 + 1;
+        coelhos[i].z = rand()%17 + 2;
     }
+
 
     Bunny bunny;
     for(int i=0; i<10; i++){
-        bunny.position = glm::vec3(posCoelhoX[i]-13, -0.4f, -posCoelhoZ[i]);
+        bunny.position = glm::vec3(-13, -0.4f, 0);
         bunnies.push_back(bunny);
-    }
+    }*/
+
+    gerarCoelhos();
 
     Wall wall;
     for(int i=0; i<22; i++){
@@ -611,29 +618,38 @@ int main(int argc, char* argv[])
             camera_position_c = player_position;
             camera_position_c.y += 0.5f;
 
-            if (checkCollisionWithBunnies(player_position, bunnies, score, tecla_TAB_pressionada)){
+            //Se apertou o botao esquerdo do mouse e colidiu com coelho
+            if (g_LeftMouseButtonPressed && checkCollisionWithBunnies(player_position, bunnies, score, tecla_TAB_pressionada)) {
                 bunny_rotation_angle = 0.157 * score;
             }
 
-            //Se ta com a espada equipada e colidiu com o minotauro
-            if (!tecla_TAB_pressionada && checkCollisionWithCow(player_position, glm::vec3(0.0f, 0.1f, -24.0f))){
+            //Se ta com a espada equipada e colidiu com o minotauro e apertou o botao esquerdo do mouse
+            if (!tecla_TAB_pressionada && g_LeftMouseButtonPressed &&checkCollisionWithCow(player_position, glm::vec3(0.0f, 0.1f, -24.0f))){
                 if (!colisionCow){ //Salva o tempo que colidiu
-                    timeBackup = (int)seconds;
+                    timeBackup = seconds;
                 }
 
                 colisionCow = true;
             }
 
+
             if (colisionCow ){
                 segundosCicloDia = 30 / ((seconds-timeBackup)*2);
-                std::cout << segundosCicloDia << " - " << seconds << " - " << (seconds-timeBackup) << "\n";
-
-                //TODO: COLOCAR TEXTO NO MEIO DA TELA DE FIM DE JOGO
+                //std::cout << segundosCicloDia << " - " << seconds << " - " << (seconds-timeBackup) << "\n";
 
                 //glUniform1f(g_light_pos_uniform, seconds * (seconds-timeBackup));
                 if (segundosCicloDia < 1){
-                    colisionCow = false;
+                    gerarCoelhos();
+                    score = 0;
+
                     segundosCicloDia = 30;
+                    camera_position_c  = glm::vec4(0.0f, -0.5f, 0.0f, 1.0f);
+                    player_position = glm::vec4(0.0f, -0.5f, 0.0f, 1.0f);
+                    bunny_rotation_angle = 0.0;
+                    g_CameraTheta = -M_PI_2; // Ângulo no plano ZX em relação ao eixo Z
+                    g_CameraPhi = 0.0f;   // Ângulo em relação ao eixo Y
+
+                    colisionCow = false;
                 }
             }
 
@@ -687,7 +703,6 @@ int main(int argc, char* argv[])
 
         //SkyBox
         glCullFace(GL_FRONT);
-        model = Matrix_Identity();
         model = Matrix_Translate(camera_position_c.x, camera_position_c.y, camera_position_c.z);
         glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
         glUniform1i(g_object_id_uniform, SKY);
@@ -695,6 +710,7 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_sphere");
         glEnable(GL_DEPTH_TEST);
         glCullFace(GL_BACK);
+
 
 
         //Cálculo da curva de Bezier
@@ -710,7 +726,6 @@ int main(int argc, char* argv[])
         g_AngleY += 0.5 * delta_t;
 
         //Desenhamos o modelo do sol
-        model = Matrix_Identity();
         model = Matrix_Translate(bezierPoint.x, bezierPoint.y, -13.0f)
                 * Matrix_Rotate_Y(g_AngleY/10)
                 * Matrix_Rotate_Z(g_AngleY/5)
@@ -721,7 +736,6 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_sphere");
 
         //Desenhamos o modelo da lua
-        model = Matrix_Identity();
         model = Matrix_Translate(-bezierPoint.x, -bezierPoint.y, -13.0f)
                 * Matrix_Rotate_Y(g_AngleY/10)
                 * Matrix_Rotate_Z(g_AngleY/5)
@@ -754,7 +768,6 @@ int main(int argc, char* argv[])
         DrawVirtualObject("the_cube");
 
         //Desenha o chão
-        model = Matrix_Identity();
         model = Matrix_Translate(-13, -0.505f, -25.5 )*
                 Matrix_Scale(26.0f, 0.01f, 27.0f);
         glUniformMatrix4fv(g_model_uniform, 1, GL_FALSE, glm::value_ptr(model));
@@ -764,7 +777,6 @@ int main(int argc, char* argv[])
         glBindVertexArray(vertex_array_object_id);
         //Desenha o caminho correto
         if(tecla_R_pressionada){
-            model = Matrix_Identity();
             for(int i=0; i< 80; i++){
                 //Correção para não ficar exatamente sobreposto nas paredes: 0.005
                 model = Matrix_Translate(CaminhoCorreto[i].x-0.005, -0.495f, -CaminhoCorreto[i].z-1+0.005) *
@@ -793,7 +805,6 @@ int main(int argc, char* argv[])
         }
 
         // Desenhamos o modelo do minotauro
-        model = Matrix_Identity();
         model = Matrix_Identity() * Matrix_Translate(0.0f, minotauroY, -24.0f)
                 * Matrix_Rotate_X(-M_PI/2)
                 * Matrix_Scale(0.01f, 0.01f, 0.01f);
@@ -805,7 +816,6 @@ int main(int argc, char* argv[])
         //Desenhamos o mapa do labirinto, grudada na tela
         if(tecla_M_pressionada){
             glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
-            model = Matrix_Identity();
             model = Matrix_Translate(-0.07, -0.055, -0.1)
                     * Matrix_Scale(0.08f, 0.05f, 0.001f)
                     * Matrix_Rotate_Y(M_PI/2);
@@ -841,6 +851,18 @@ int main(int argc, char* argv[])
             DrawVirtualObject("Object_TexMap");
         }
 
+        if (colisionCow){ //Mensagem de Fim de Jogo, com transparência
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glUniformMatrix4fv(g_view_uniform, 1 , GL_FALSE , glm::value_ptr(Matrix_Identity()));
+            model = Matrix_Translate(-0.05, -0.015, -0.1)
+                    * Matrix_Scale(0.1f, 0.03f, 0.001f)
+                    * Matrix_Rotate_Y(M_PI/2);
+            glUniformMatrix4fv(g_model_uniform, 1 , GL_FALSE , glm::value_ptr(model));
+            glUniform1i(g_object_id_uniform, MSG_FIM);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            DrawVirtualObject("the_cube");
+        }
 
 
         if (tecla_F_pressionada){
@@ -889,6 +911,18 @@ glm::vec3 bezierCubicCurve(std::vector<glm::vec3> points, float t)
     ct = b03*points[0] + b13*points[1] + b23*points[2] + b33*points[3];
 
     return ct;
+}
+
+void gerarCoelhos(){
+
+    bunnies.clear();
+
+    Bunny bunny;
+    for(int i=0; i<10; i++){
+        bunny.position = glm::vec3((rand()%24 + 1)-13, -0.4f, -(rand()%17 + 2));
+        bunnies.push_back(bunny);
+    }
+
 }
 
 
@@ -1061,6 +1095,7 @@ void LoadShadersFromFiles()
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "brickTexture"), 12);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "minotaurBodyTexture"), 13);
     glUniform1i(glGetUniformLocation(g_GpuProgramID, "swordTextureS"), 14);
+    glUniform1i(glGetUniformLocation(g_GpuProgramID, "MsgFimTexture"), 15);
 
     glUseProgram(0);
 }

@@ -33,6 +33,7 @@ uniform mat4 projection;
 #define SKY         12
 #define CUBEXY_FIM  13
 #define CUBEYZ_FIM  14
+#define MSG_FIM     15
 
 uniform int object_id;
 
@@ -66,6 +67,7 @@ uniform sampler2D skyNightTexture;
 uniform sampler2D brickTexture;
 uniform sampler2D minotaurBodyTexture;
 uniform sampler2D swordTextureS;
+uniform sampler2D MsgFimTexture;
 
 uniform int interpolation;
 
@@ -134,7 +136,7 @@ void main()
         q = 1.0;
     }
     else if ( object_id == BUNNY){
-        
+
         float minx = bbox_min.x;
         float maxx = bbox_max.x;
 
@@ -321,6 +323,24 @@ void main()
         Ks = vec3(0.0, 0.0, 0.0);
         q = 1.0;
 
+    }else if(object_id == MSG_FIM){
+        float minx = bbox_min.x;
+        float maxx = bbox_max.x;
+
+        float miny = bbox_min.y;
+        float maxy = bbox_max.y;
+
+        float minz = bbox_min.z;
+        float maxz = bbox_max.z;
+
+        U = (position_model.z - minz)/(maxz - minz);
+        V = (position_model.y - miny)/(maxy - miny);
+
+        Kd = 2*texture(MsgFimTexture, vec2(U,V)).rgb;
+        Ks = Kd/2;
+        Ka = Kd/2;
+        q = 256.0;
+
     }else { // Objeto desconhecido = preto
         Kd = vec3(0.0,0.0,0.0);
         Ks = vec3(0.0,0.0,0.0);
@@ -355,6 +375,8 @@ void main()
     vec3 blinn_phong_specular_term_time_moon  = Ks * I_moon * pow(max(0, dot(n, hTimeMoon)), q); //Termo especular de Phong da Lua
 
     color.a = 1;
+    if (object_id == MSG_FIM)
+        color.a = 0.7;
 
     vec4 color_flash = vec4(0.0, 0.0, 0.0, 1.0);
     vec4 color_time_sun = vec4(0.0, 0.0, 0.0, 1.0);
@@ -383,7 +405,7 @@ void main()
         color.rgb = 5*color_flash.rgb + color_time_sun.rgb + 0.05*color_time_moon.rgb + ambient_term;
 
 
-    if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY){
+    if(object_id == MOON || object_id == PATH || object_id == MAP || object_id == SKY || object_id == MSG_FIM){
         color.rgb = Ka*vec3(1.0, 1.0, 1.0);
     }
     if(object_id == SUN){
