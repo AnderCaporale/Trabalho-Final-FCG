@@ -39,14 +39,37 @@ Ao matar o Boss, o jogo é reiniciado após alguns segundos, com mais 10 coelhos
 Ambos trabalhamos em quase todos os pontos do trabalho.
 Seguem alguns pontos específicos que mexemos isoladamente:
 
-###Anderson:
+### Anderson:
 - [x] Codificação do Labirinto
 - [x] Câmera look-at
 - [x] Curvas de Bézier Cúbicas
 - [x] SkyBox
 
 
-###Luca: 
+### Luca: 
 - [x] Colisões
 - [x] Modelos de Intepolações
 - [x] Movimentação
+
+
+<br>
+## Imagens
+
+Ciclo de Dia e Noite.
+  <img src="Imgs/LabirintoDia.png">
+  <img src="Imgs/LabirintoPorDoSol.png">
+  <img src="Imgs/LabirintoNoite.png">
+
+
+Lanterna ilumina mais forte o que está perto do player.
+  <img src="Imgs/Lanterna.png">
+
+
+Olhando o Mapa para encontrar o caminho.
+<img src="Imgs/OlhandoMapa.png">
+
+Porta secreta que abre ao matar os coelhos pelo labirinto.
+<img src="Imgs/PortaSecreta.png">
+
+Boss no final do labirinto.
+<img src="Imgs/Boss.png">
